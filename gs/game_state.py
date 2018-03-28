@@ -11,42 +11,15 @@ class GameState:
         self.mgr = mgr
         # Parent is the state that we came from
         self.parent = parent
+        # Each gamestate print
+        self.surf = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
         pass
 
     def update(self):
         pass
 
     def draw(self, surf):
-        pass
-
-
-class Panel:
-    """A rectangular widget which contains relatively placed child widgets"""
-    def __init__(self, width, height, color=(0,0,0)):
-        self.color = color
-        self.surf = pygame.Surface((width, height))
-        self.children = [] # A list of widgets in this panel
-
-    def add(self, widget, pos):
-        """Add a child widget with a relative position"""
-        self.children.append((widget, pos))
-
-    def set_color(self, color):
-        self.color = color
-
-    # A panel has no behavior, so it just updates its children
-    def update(self):
-        for child in self.children:
-            child[0].update()
-
-    def draw(self, surf, pos):
-        # First fill the panel's surface with its background color
-        self.surf.fill(self.color)
-        # Now draw all of its child objects on top
-        for child in self.children:
-            child[0].draw(self.surf, child[1])
-        # When we're done, draw this panel onto the surface we were given, at the appropriate relative position
-        surf.blit(self.surf, pos)
+        surf.blit(self.surf, (0,0))
 
 
 class Menu:
@@ -101,3 +74,32 @@ class Menu:
                 surf.blit(self.font.render(self.items[i]["name"], True, self.color_high), (x, y + self.height * i))
             else:
                 surf.blit(self.font.render(self.items[i]["name"], True, self.color_def), (x, y + self.height * i))
+
+
+class Panel:
+    """A rectangular widget which contains relatively placed child widgets"""
+    def __init__(self, width, height, color=(0,0,0)):
+        self.color = color
+        self.surf = pygame.Surface((width, height))
+        self.children = [] # A list of widgets in this panel
+
+    def add(self, widget, pos):
+        """Add a child widget with a relative position"""
+        self.children.append((widget, pos))
+
+    def set_color(self, color):
+        self.color = color
+
+    # A panel has no behavior, so it just updates its children
+    def update(self):
+        for child in self.children:
+            child[0].update()
+
+    def draw(self, surf, pos):
+        # First fill the panel's surface with its background color
+        self.surf.fill(self.color)
+        # Now draw all of its child objects on top
+        for child in self.children:
+            child[0].draw(self.surf, child[1])
+        # When we're done, draw this panel onto the surface we were given, at the appropriate relative position
+        surf.blit(self.surf, pos)

@@ -26,12 +26,13 @@ class GSPause(GameState):
         pygame.event.clear()
         self.frames = (self.frames + 1) % (GSPause.FLICKER * 2)
 
-    def draw(self):
+    def draw(self, surf):
         self.surf.blit(self.parent.surf, (0, 0))
         # We can have a cute flashing on the pause screen!! Very optional
         if not self.flicker or self.frames < GSPause.FLICKER:
             self.surf.blit(self.font.render("PAUSED", True, (100,100,0)), (325, 250))
         self.menu.draw(self.surf, (325, 350))
+        super().draw(surf)
 
 
 class PauseMenu(Menu):

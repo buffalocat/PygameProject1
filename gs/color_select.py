@@ -33,11 +33,6 @@ class GSColorSelect(GameState):
                     self.x = x
                     self.y = y
                     self.get_current_color()
-            elif event.type == MOUSEBUTTONDOWN:
-                r = self.color >> 16
-                g = (self.color >> 8) % 256
-                b = self.color % 256
-                print(f"The current color is {r, g, b}")
             elif event.type == KEYDOWN:
                 if event.key == K_UP:
                     self.sat = min(self.sat + DSAT_L, 256)
@@ -64,17 +59,24 @@ class GSColorSelect(GameState):
         del pixels
         self.preview.set_color(self.color)
 
+    def color_rgb(self):
+        r = (self.color >> 16) % 256
+        g = (self.color >> 8) % 256
+        b = self.color % 256
+        return (r,g,b)
+
     def draw(self, surf):
-        surf.fill(self.bg)
-        self.color_panel.draw(surf, (LEFT, TOP))
-        self.preview.draw(surf, (0, WINDOW_HEIGHT - 50))
+        self.surf.fill(self.bg)
+        self.color_panel.draw(self.surf, (LEFT, TOP))
+        self.preview.draw(self.surf, (0, WINDOW_HEIGHT - 50))
         # Clearly there's a better way to render multiple lines of text, but this works for now!
-        surf.blit(self.font.render("Use the arrow keys to change saturation (This may take a moment)", True, BLACK),
+        self.surf.blit(self.font.render("Use the arrow keys to change saturation (This may take a moment)", True, BLACK),
                   (60, WINDOW_HEIGHT - 65))
-        surf.blit(self.font.render("Click to print the current color", True, BLACK),
+        self.surf.blit(self.font.render(f"The current color is {self.color_rgb()}", True, BLACK),
                   (60, WINDOW_HEIGHT - 45))
-        surf.blit(self.font.render("Press Enter to return to menu", True, BLACK),
+        self.surf.blit(self.font.render("Press Enter to return to menu", True, BLACK),
                   (60, WINDOW_HEIGHT - 25))
+        super().draw(surf)
 
 class ColorChooser(Panel):
     def __init__(self, width, height):

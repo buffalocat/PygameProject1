@@ -15,8 +15,9 @@ class GSStartMenu(GameState):
         pygame.event.clear()
 
     def draw(self, surf):
-        surf.fill(self.bg)
-        self.menu.draw(surf, (10, 10))
+        self.surf.fill(self.bg)
+        self.menu.draw(self.surf, (10, 10))
+        super().draw(surf)
 
 class StartMenu(Menu):
     def __init__(self, parent):
