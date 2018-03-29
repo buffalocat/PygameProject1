@@ -1,7 +1,7 @@
 import pygame
 
 from game_constants import *
-from gs.game_state import GameState, Menu
+from game_state import GameState, Menu
 
 
 class GSPause(GameState):

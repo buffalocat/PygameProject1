@@ -4,6 +4,7 @@ import pygame
 
 from game_constants import *
 from gs.color_select import GSColorSelect
+from gs.connection_setup import GSConnectionSetup
 from gs.pause import GSPause
 from gs.start_menu import GSStartMenu
 # Still need to make a game state for the actual game !!!
@@ -27,6 +28,9 @@ class StateManager:
 
     def start_menu(self):
         self.state = GSStartMenu(self)
+
+    def connection_setup(self):
+        self.state = GSConnectionSetup(self, self.state)
 
     def color_select(self):
         self.state = GSColorSelect(self, self.state)

@@ -2,7 +2,6 @@ import pygame
 import tkinter as tk
 
 from game_constants import *
-from gs.state_manager import StateManager
 
 # Main Game Loop
 
@@ -23,6 +22,8 @@ def main():
     root.withdraw()
 
     # Everything interesting is controlled by the game state manager
+    # We delay the import so that we can initialize pygame.font
+    from state_manager import StateManager
     manager = StateManager()
 
     # update() handles events since the previous frame and makes necessary changes

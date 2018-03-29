@@ -25,7 +25,8 @@ class GameState:
 class Menu:
     """A widget which displays a list of menu items"""
     def __init__(self, parent):
-        # Almost always, the parent object is the current game state
+        # The parent object is the thing which calls the methods stored in this menu
+        # Frequently either the current state or the state manager
         self.parent = parent
         self.items = []
         self.index = 0
@@ -76,6 +77,7 @@ class Menu:
                 surf.blit(self.font.render(self.items[i]["name"], True, self.color_def), (x, y + self.height * i))
 
 
+# Note: we haven't had need for this yet!  And we might not for a while.
 class Panel:
     """A rectangular widget which contains relatively placed child widgets"""
     def __init__(self, width, height, color=(0,0,0)):

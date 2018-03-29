@@ -1,7 +1,7 @@
 import pygame
 
 from game_constants import *
-from gs.game_state import GameState, Panel
+from game_state import GameState, Panel
 
 TOP = 10
 LEFT = 10
