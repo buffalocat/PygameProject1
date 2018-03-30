@@ -32,3 +32,8 @@ and just tells the client(s) what happened.  Of course, the
 clients share information with the host, so the relationship is
 nearly symmetric, but if there's a disagreement, the host's
 version of reality takes precedence.
+
+TO DO:
+Implement GUI elements (avoid using tkinter, so pygame doesn't lose focus)
+Determine the protocol for connecting to host
+Abstract GSConnectionSetup a little - not everything belongs in the game state class

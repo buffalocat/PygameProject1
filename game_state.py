@@ -26,6 +26,36 @@ class GameState:
         pass
 
 
+# Note: we haven't had need for this yet!  And we might not for a while.
+class Panel:
+    """A rectangular widget which contains relatively placed child widgets"""
+    def __init__(self, width, height, color=(0,0,0)):
+        self.color = color
+        self.surf = pygame.Surface((width, height))
+        self.children = [] # A list of widgets in this panel
+
+    def add(self, widget, pos):
+        """Add a child widget with a relative position"""
+        self.children.append((widget, pos))
+
+    def set_color(self, color):
+        self.color = color
+
+    # A panel has no behavior, so it just updates its children
+    def update(self):
+        for child in self.children:
+            child[0].update()
+
+    def draw(self, surf, pos):
+        # First fill the panel's surface with its background color
+        self.surf.fill(self.color)
+        # Now draw all of its child objects on top
+        for child in self.children:
+            child[0].draw(self.surf, child[1])
+        # When we're done, draw this panel onto the surface we were given, at the appropriate relative position
+        surf.blit(self.surf, pos)
+
+
 class Menu:
     """A widget which displays a list of menu items"""
     def __init__(self, parent):
@@ -59,7 +89,6 @@ class Menu:
                 for attr in self.items[self.index]["method"].split("."):
                     caller = getattr(caller, attr)
                 caller()
-
             pygame.event.post(event)
 
     def next(self):
@@ -80,7 +109,7 @@ class Menu:
             else:
                 surf.blit(self.font.render(self.items[i]["name"], True, self.color_def), (x, y + self.height * i))
 
-
+# Should this class be reconciled with Menu somehow...?
 class TextLines:
     """A very simple class for displaying lines of text"""
     # Basically a nonfunctional menu
@@ -94,6 +123,9 @@ class TextLines:
     def add_line(self, line):
         self.lines.append(line)
 
+    # If you have a line which changes depending on variables, use this to redefine it
+    # Could there be a better way?
+    # Consider: a line has a list of (object, attribute) pairs, and we call format() using these in draw()
     def set_line(self, index, line):
         if index in range(len(self.lines)):
             self.lines[index] = line
@@ -103,31 +135,17 @@ class TextLines:
         for i in range(len(self.lines)):
             surf.blit(self.font.render(self.lines[i], True, self.color), (x, y + self.height * i))
 
-# Note: we haven't had need for this yet!  And we might not for a while.
-class Panel:
-    """A rectangular widget which contains relatively placed child widgets"""
-    def __init__(self, width, height, color=(0,0,0)):
-        self.color = color
-        self.surf = pygame.Surface((width, height))
-        self.children = [] # A list of widgets in this panel
 
-    def add(self, widget, pos):
-        """Add a child widget with a relative position"""
-        self.children.append((widget, pos))
+# We'll keep this one really simple at first: the cursor only goes at the end of the current text
+# Note to self: Use pygame.key.get_mods() to check for ctrl, so we can enable pasting
+class TextInput:
+    """A widget for inputting text"""
 
-    def set_color(self, color):
-        self.color = color
 
-    # A panel has no behavior, so it just updates its children
-    def update(self):
-        for child in self.children:
-            child[0].update()
+class Button:
+    """A button widget"""
 
-    def draw(self, surf, pos):
-        # First fill the panel's surface with its background color
-        self.surf.fill(self.color)
-        # Now draw all of its child objects on top
-        for child in self.children:
-            child[0].draw(self.surf, child[1])
-        # When we're done, draw this panel onto the surface we were given, at the appropriate relative position
-        surf.blit(self.surf, pos)
+
+# Not exactly a priority, but pretty cool!
+class ClickableMenu(Panel):
+    """A panel which contains a menu, along with invisible buttons on its items"""

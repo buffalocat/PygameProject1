@@ -5,15 +5,13 @@ import tkinter
 from queue import Queue
 import threading
 import socket
+import random
 
 import pygame
 
 from font import FONT_MEDIUM
 from game_constants import *
 from game_state import GameState, Menu, Panel, TextLines
-
-from random import random  #delete later
-from time import sleep  #delete later
 
 
 class Signal(Enum):
@@ -168,5 +166,29 @@ def alpha_to_num(s):
         n += ord(c) - 65
     return n
 
+# Let's add in some noise, essentially a "session password"
+# It also reverses the bits! But remove_noise unreverses them!
+def add_noise(a):
+    b = 0
+    while a:
+        b <<= 1
+        if random.random() > 0.5:
+            b += 1
+        b <<= 1
+        b += a & 1
+        a >>= 1
+    return b
+
+def remove_noise(b):
+    a = 0
+    while b:
+        a <<= 1
+        a += b & 1
+        b >>= 2
+    return a
+
 def ip_encode(ip):
-    return num_to_alpha(ip_to_num(ip))
+    return num_to_alpha(add_noise(ip_to_num(ip)))
+
+def ip_decode(s):
+    return num_to_ip(remove_noise(alpha_to_num(s)))
