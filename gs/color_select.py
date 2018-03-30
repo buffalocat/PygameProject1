@@ -1,7 +1,8 @@
 import pygame
 
+from font import FONT_SMALL
 from game_constants import *
-from game_state import GameState, Panel
+from game_state import GameState, Panel, TextLines
 
 TOP = 10
 LEFT = 10
@@ -23,6 +24,8 @@ class GSColorSelect(GameState):
         self.color = 0
         self.color_panel = ColorChooser(WIDTH, HEIGHT)
         self.preview = Panel(50, 50)
+        self.text = TextLines()
+        self.set_text()
         self.font = pygame.font.Font(pygame.font.match_font('consolas', bold=True), 20)
 
     def update(self):
@@ -65,17 +68,20 @@ class GSColorSelect(GameState):
         b = self.color % 256
         return (r,g,b)
 
+    def set_text(self):
+        self.text.color = NAVY_BLUE
+        self.text.font = FONT_SMALL
+        self.text.height = 20
+        self.text.add_line("Use the arrow keys to change saturation (This may take a moment)")
+        self.text.add_line(f"The current color is {self.color_rgb()}")
+        self.text.add_line("Press Enter to return to menu")
+
     def draw(self, surf):
         self.surf.fill(self.bg)
         self.color_panel.draw(self.surf, (LEFT, TOP))
         self.preview.draw(self.surf, (0, WINDOW_HEIGHT - 50))
-        # Clearly there's a better way to render multiple lines of text, but this works for now!
-        self.surf.blit(self.font.render("Use the arrow keys to change saturation (This may take a moment)", True, BLACK),
-                  (60, WINDOW_HEIGHT - 65))
-        self.surf.blit(self.font.render(f"The current color is {self.color_rgb()}", True, BLACK),
-                  (60, WINDOW_HEIGHT - 45))
-        self.surf.blit(self.font.render("Press Enter to return to menu", True, BLACK),
-                  (60, WINDOW_HEIGHT - 25))
+        self.text.set_line(1, f"The current color is {self.color_rgb()}")
+        self.text.draw(self.surf, (60, WINDOW_HEIGHT - 65))
         super().draw(surf)
 
 class ColorChooser(Panel):

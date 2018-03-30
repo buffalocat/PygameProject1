@@ -21,6 +21,10 @@ class GameState:
     def draw(self, surf):
         surf.blit(self.surf, (0,0))
 
+    def quit(self):
+        """Perform any necessary clean-up before leaving a state for good"""
+        pass
+
 
 class Menu:
     """A widget which displays a list of menu items"""
@@ -76,6 +80,28 @@ class Menu:
             else:
                 surf.blit(self.font.render(self.items[i]["name"], True, self.color_def), (x, y + self.height * i))
 
+
+class TextLines:
+    """A very simple class for displaying lines of text"""
+    # Basically a nonfunctional menu
+    def __init__(self):
+        self.lines = []
+        # Font things, which must be overwritten by the subclass constructor
+        self.height = 0
+        self.color = None
+        self.font = None
+
+    def add_line(self, line):
+        self.lines.append(line)
+
+    def set_line(self, index, line):
+        if index in range(len(self.lines)):
+            self.lines[index] = line
+
+    def draw(self, surf, pos):
+        x, y = pos
+        for i in range(len(self.lines)):
+            surf.blit(self.font.render(self.lines[i], True, self.color), (x, y + self.height * i))
 
 # Note: we haven't had need for this yet!  And we might not for a while.
 class Panel:

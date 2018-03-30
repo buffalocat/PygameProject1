@@ -10,7 +10,7 @@ def main():
     pygame.init()
     pygame.font.init()
     # These are the only events we care about handling
-    pygame.event.set_allowed([KEYUP, KEYDOWN, MOUSEBUTTONDOWN])
+    pygame.event.set_allowed([KEYUP, KEYDOWN, MOUSEBUTTONDOWN, ACTIVEEVENT])
     # This makes sure we run at a consistent FPS
     FPSCLOCK = pygame.time.Clock()
     # Some cosmetic settings

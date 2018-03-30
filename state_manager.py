@@ -42,6 +42,7 @@ class StateManager:
     def previous_state(self):
         """Return control to the current state's parent state."""
         if self.state.parent is not None:
+            self.state.quit()
             self.state = self.state.parent
         # If we were already at the top of the state stack, just quit
         else:
@@ -65,5 +66,6 @@ class StateManager:
 
     def terminate(self):
         """Safely quit pygame."""
+        self.state.quit()
         pygame.quit()
         sys.exit()

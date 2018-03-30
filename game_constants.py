@@ -9,6 +9,10 @@ FPS = 60
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
 
+# I/O
+DEFAULT_PORT = 2233
+SOCKET_BUFFER_SIZE = 256
+
 # Some input related constants
 MB_LEFT = 1
 MB_RIGHT = 3

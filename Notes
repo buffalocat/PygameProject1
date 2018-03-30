@@ -25,3 +25,10 @@ surface onto its own surface.  One justification for letting
 each state keep its own surface is that, for instance,
 when the game pauses we can show the pause menu on top of the
 previous state's surface.
+
+Host and Client:
+Roughly speaking, the host keeps track of everything that happens,
+and just tells the client(s) what happened.  Of course, the
+clients share information with the host, so the relationship is
+nearly symmetric, but if there's a disagreement, the host's
+version of reality takes precedence.
