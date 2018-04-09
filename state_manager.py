@@ -5,6 +5,7 @@ import pygame
 from game_constants import *
 from gs.color_select import GSColorSelect
 from gs.connection_setup import GSConnectionSetup
+from gs.go import GSGo
 from gs.pause import GSPause
 from gs.start_menu import GSStartMenu
 # Still need to make a game state for the actual game !!!
@@ -12,22 +13,28 @@ from gs.start_menu import GSStartMenu
 class StateManager:
     def __init__(self):
         self.state = None
-        self.surf = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.pause_timer = 0
         self.start_menu()
 
     def update(self):
         self.check_for_quit()
+        self.state.handle_input()
+        # This is slightly dangerous
+        pygame.event.clear()
+        # All of the "worK" should go in update()
         self.state.update()
 
     def draw(self):
-        self.state.draw(self.surf)
+        self.state.draw()
 
     # Note: state change methods COULD be unified, but we'll keep them separate
     # You never know what information you might need to pass to a new state
 
     def start_menu(self):
         self.state = GSStartMenu(self)
+
+    def play_go(self):
+        self.state = GSGo(self, self.state)
 
     def connection_setup(self):
         self.state = GSConnectionSetup(self, self.state)

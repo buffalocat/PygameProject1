@@ -2,7 +2,8 @@ import pygame
 
 from font import FONT_SMALL
 from game_constants import *
-from game_state import GameState, Panel, TextLines
+from game_state import GameState
+from widget import Panel, TextLines
 
 TOP = 10
 LEFT = 10
@@ -17,18 +18,20 @@ DSAT = 4
 class GSColorSelect(GameState):
     def __init__(self, mgr, parent):
         super().__init__(mgr, parent)
-        self.bg = (255, 255, 255)
+        self.root.set_color(WHITE)
+        self.color_panel = ColorChooser((WIDTH, HEIGHT), (LEFT, TOP))
+        self.root.add(self.color_panel)
+        self.preview = Panel((50, 50), (0, WINDOW_HEIGHT - 50))
+        self.root.add(self.preview)
         self.sat = 256
         self.x = 0
         self.y = 0
         self.color = 0
-        self.color_panel = ColorChooser(WIDTH, HEIGHT)
-        self.preview = Panel(50, 50)
         self.text = TextLines()
         self.set_text()
         self.font = pygame.font.Font(pygame.font.match_font('consolas', bold=True), 20)
 
-    def update(self):
+    def handle_input(self):
         for event in pygame.event.get():
             if event.type == MOUSEMOTION:
                 x, y = pygame.mouse.get_pos()
@@ -57,10 +60,10 @@ class GSColorSelect(GameState):
                     self.mgr.previous_state()
 
     def get_current_color(self):
-        pixels = pygame.PixelArray(self.mgr.surf)
+        pixels = pygame.PixelArray(self.surf)
         self.color = pixels[self.x][self.y]
         del pixels
-        self.preview.set_color(self.color)
+        self.preview.set_color(self.color_rgb())
 
     def color_rgb(self):
         r = (self.color >> 16) % 256
@@ -76,36 +79,35 @@ class GSColorSelect(GameState):
         self.text.add_line(f"The current color is {self.color_rgb()}")
         self.text.add_line("Press Enter to return to menu")
 
-    def draw(self, surf):
-        self.surf.fill(self.bg)
-        self.color_panel.draw(self.surf, (LEFT, TOP))
-        self.preview.draw(self.surf, (0, WINDOW_HEIGHT - 50))
+    def draw(self):
+        super().draw()
         self.text.set_line(1, f"The current color is {self.color_rgb()}")
         self.text.draw(self.surf, (60, WINDOW_HEIGHT - 65))
-        super().draw(surf)
 
 class ColorChooser(Panel):
-    def __init__(self, width, height):
-        super().__init__(width, height)
+    def __init__(self, dims, pos):
+        super().__init__(dims, pos)
         # Do the initial drawing
+        self.hue = [get_hue(x, BLOCK) for x in range(WIDTH)]
+        self.lum = [(HEIGHT - 1 - y) / HEIGHT for y in range(HEIGHT)]
         self.draw_once(256)
 
     # This function is called every time the saturation changes.  It's not very efficient!
     def draw_once(self, sat):
         pixels = pygame.PixelArray(self.surf)
         for x in range(WIDTH):
-            r, g, b = hue(x, BLOCK, sat)
+            r, g, b = apply_sat(*self.hue[x], sat)
             for y in range(HEIGHT):
-                lum = (HEIGHT - 1 - y) / HEIGHT
+                lum = self.lum[y]
                 pixels[x][y] = (r * lum, g * lum, b * lum)
         del pixels
 
     # Override the superclass method so that we're not repainting the surface black every frame
-    def draw(self, surf, pos):
-        surf.blit(self.surf, pos)
+    def draw(self, surf):
+        surf.blit(self.surf, self.pos)
 
 
-def hue(x, size, sat):
+def get_hue(x, size):
     block = x//size
     rem = x % size
     if block == 0:
@@ -134,6 +136,9 @@ def hue(x, size, sat):
         b = ((size - rem) * 256) // size
     else:
         r, g, b = 0, 0, 0
+    return r, g, b
+
+def apply_sat(r, g, b, sat):
     r = r * sat // 256 + (256 - sat)
     g = g * sat // 256 + (256 - sat)
     b = b * sat // 256 + (256 - sat)

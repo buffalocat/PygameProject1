@@ -11,7 +11,8 @@ import pygame
 
 from font import FONT_MEDIUM
 from game_constants import *
-from game_state import GameState, Menu, Panel, TextLines
+from game_state import GameState
+from widget import Panel, Menu, TextLines
 
 
 class Signal(Enum):
@@ -27,8 +28,8 @@ class Signal(Enum):
 class GSConnectionSetup(GameState):
     def __init__(self, mgr, parent):
         super().__init__(mgr, parent)
-        self.bg = RED
-        self.menu = ConnectionSetupMenu(self)
+        self.root.set_color(RED)
+        self.root.add(ConnectionSetupMenu(self, (10, 10)))
         self.room_code = ""
         self.port = 0
         self.connection_q = Queue()
@@ -36,14 +37,8 @@ class GSConnectionSetup(GameState):
         self.hosting = False
 
     def update(self):
-        self.menu.update()
-        pygame.event.clear()
+        super().update()
         self.check_q()
-
-    def draw(self, surf):
-        self.surf.fill(self.bg)
-        self.menu.draw(self.surf, (10, 10))
-        super().draw(surf)
 
     def quit(self):
         self.kill_thread()
@@ -122,8 +117,8 @@ def listener_thread(connection_q, kill_q):
     server.close()
 
 class ConnectionSetupMenu(Menu):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent, pos):
+        super().__init__(parent, pos)
         self.add_item("Host Room", "host_room")
         self.add_item("Show Room Status", "show_room_info")
         self.add_item("Connect To Room", "connect_to_room")
