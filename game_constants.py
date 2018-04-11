@@ -11,6 +11,7 @@ WINDOW_HEIGHT = 600
 
 # I/O
 DEFAULT_PORT = 2233
+MAX_PORT = 3000
 SOCKET_BUFFER_SIZE = 256
 
 # Some input related constants

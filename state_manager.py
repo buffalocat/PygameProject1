@@ -23,7 +23,7 @@ class StateManager:
         self.state.handle_input()
         # This should finish executing as quickly as possible, so as to not drop input
         pygame.event.clear()
-        # All of the "worK" should go in update()
+        # All of the "work" should go in update()
         self.state.update()
 
     def draw(self):
@@ -42,6 +42,8 @@ class StateManager:
 
     def terminate(self):
         """Safely quit pygame."""
-        self.state.quit()
+        # This ensures that the quit function of every GameState
+        # on the stack is called
+        self.state.top_state()
         pygame.quit()
         sys.exit()

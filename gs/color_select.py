@@ -8,9 +8,9 @@ from widget import Panel, TextLines
 TOP = 10
 LEFT = 10
 
-BLOCK = 128
+BLOCK = 64
 WIDTH = BLOCK * 6
-HEIGHT = 512
+HEIGHT = 256
 
 DSAT_L = 32
 DSAT = 4
