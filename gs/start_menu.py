@@ -5,6 +5,9 @@ import pygame
 from font import FONT_LARGE
 from game_constants import *
 from game_state import GameState
+from gs.color_select import GSColorSelect
+from gs.connection_setup import GSConnectionSetup
+from gs.go import GSGo
 from widget import Menu
 
 
@@ -12,7 +15,16 @@ class GSStartMenu(GameState):
     def __init__(self, mgr):
         super().__init__(mgr)
         self.root.set_color(GREEN)
-        self.root.add(StartMenu(mgr, (10, 10)))
+        self.root.add(StartMenu(self, (10, 10)))
+
+    def play_go(self):
+        GSGo(self.mgr, self)
+
+    def connection_setup(self):
+        GSConnectionSetup(self.mgr, self)
+
+    def color_select(self):
+        GSColorSelect(self.mgr, self)
 
 
 # Note: the parent of StartMenu is the StateManager, because

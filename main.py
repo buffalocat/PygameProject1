@@ -1,5 +1,4 @@
 import pygame
-import tkinter as tk
 
 from game_constants import *
 
@@ -16,10 +15,6 @@ def main():
     # Some cosmetic settings
     pygame.display.set_caption('Game')
     pygame.mouse.set_visible(True)
-
-    # We need tkinter for making certain GUI things easy, later
-    root = tk.Tk()
-    root.withdraw()
 
     # Everything interesting is controlled by the game state manager
     # We delay the import so that we can initialize pygame.font

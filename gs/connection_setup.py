@@ -52,6 +52,13 @@ class GSConnectionSetup(GameState):
             self.dialog("Room Info", f"Room Code: {self.room_code}\n"
                                      f"Port: {self.port}")
 
+    def copy_room_code(self):
+        if self.room_code == "":
+            self.dialog("Error", "Please host or connect to a room first")
+        else:
+            self.mgr.root.clipboard_clear()
+            self.mgr.root.clipboard_append(self.room_code)
+
     def check_q(self):
         while not self.connection_q.empty():
             signal, message = self.connection_q.get(block=False)
@@ -121,8 +128,9 @@ class ConnectionSetupMenu(Menu):
         super().__init__(parent, pos)
         self.add_item("Host Room", "host_room")
         self.add_item("Show Room Status", "show_room_info")
+        self.add_item("Copy Room Code to Clipboard", "copy_room_code")
         self.add_item("Connect To Room", "connect_to_room")
-        self.add_item("Return to Menu", "mgr.previous_state")
+        self.add_item("Return to Menu", "previous_state")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD
         self.height = 40

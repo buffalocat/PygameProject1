@@ -70,8 +70,10 @@ class GSGo(GameState):
                 for piece in threat:
                     new.threaten(piece.root, self.board)
                 self.board[pos] = new
-                new.print()
                 self.color = self.opp_color()
+            else:
+                # We may have given this space "liberties" even if it was an illegal move
+                new.liberties = set()
 
     def opp_color(self):
         if self.color == Go.BLACK:
@@ -87,9 +89,9 @@ class GSGo(GameState):
         for x in range(-1, size + 1):
             for y in range(-1, size + 1):
                 if 0 <= x < size and 0 <= y < size:
-                    self.board[(x,y)] = Piece(Go.EMPTY, (x,y))
+                    self.board[(x,y)] = Region(Go.EMPTY, (x, y))
                 else:
-                    self.board[(x,y)] = Piece(Go.INVALID, (x,y))
+                    self.board[(x,y)] = Region(Go.INVALID, (x, y))
 
     def board_to_int(self):
         """Compactly represent the board as an int"""
@@ -122,7 +124,7 @@ class GSGo(GameState):
                     pygame.draw.circle(self.surf, WHITE, self.pos(x, y), PIECE_SIZE)
 
 
-class Piece:
+class Region:
     def __init__(self, color, pos=None):
         self.reset()
         self.color = color
