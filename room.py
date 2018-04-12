@@ -10,23 +10,24 @@ from game_constants import *
 # Requirements:
 # each Signal is an int between 0 and 255
 # and is to be sent as the first byte of any message
-# messages below a certain index are designated as "internal"
-# "external" messages are relayed to all clients
 
-INTERNAL = 8
 
 class Signal(IntEnum):
     """Indicators of what kind of data is being passed between threads"""
-    ERROR = 0
-    INT_IP = 1
-    INT_PORT = 2
-    EXT_MESSAGE = 3
-    CLOSE = 4
-    ERROR_PORT = 5
+    ERROR = 1
+    ROOM_CODE = 2
+    CLOSE = 7
+
+    NEW_CLIENT = 14
+    NEW_PLAYER = 16
+    DISCONNECT = 20
+
+    GAME_MOVE = 32
 
 class Room:
     def __init__(self):
         self.hosting = False
+        self.listener_alive = False
         self.room_code = ""
         self.port = 0
         self.players = []
@@ -38,41 +39,82 @@ class Room:
         # This queue is how we kill our listener thread
         self.kill_q = Queue()
 
+    # For now, player is just a string
     def add_player(self, player):
         self.players.append(player)
-        if player.ip is not None and player.ip not in self.clients:
-            self.clients.append(player.ip)
 
-    def send(self, message):
-        for address, port in self.clients:
+    def send_all(self, signal, message):
+        """Relay a message to all clients"""
+        total_message = self.join_message(signal, message)
+        for ip, port in self.clients:
             s = socket.socket()
-            s.connect(())
+            s.connect((ip, port))
+            s.send(total_message)
+
+    def send(self, player_id, signal, message):
+        total_message = self.join_message(signal, message)
+        s = socket.socket()
+        s.connect(self.clients[player_id])
+        s.send(total_message)
+
+    def join_message(self, signal, message):
+        return bytes([signal]) + message.encode()
 
     def listen(self):
-        thread = threading.Thread(target=listener_thread,
-                                  args=(self.connection_q, self.kill_q))
-        thread.start()
+        self.listener = threading.Thread(target=listener_thread,
+                                         args=(self.connection_q, self.kill_q))
+        self.listener_alive = True
+        self.listener.start()
+
+    def host(self):
+        """Begin hosting a new room"""
+        self.hosting = True
+        self.add_player("host")
+        self.listen()
+
+    def connect(self, code):
+        """Connect to an existing room"""
+        self.room_code = code
+        ip, port = room_decode(code)
+        self.clients.append((ip, port))
+        self.listen()
+
 
     def check_q(self):
-        while not self.connection_q.empty():
+        if not self.connection_q.empty():
             signal, message = self.connection_q.get(block=False)
-            if signal == Signal.ERROR_PORT:
+            print(f"Got a message of type {signal}: {message}")
+            if signal == Signal.ERROR:
                 self.hosting = False
                 self.dialog("Error", message)
-            elif signal == Signal.INT_IP:
-                self.room_code = ip_encode(message.decode())
-            elif signal == Signal.INT_PORT:
-                self.port = message
+            elif signal == Signal.ROOM_CODE:
+                _, port = room_decode(message)
+                self.port = port
+                if self.hosting:
+                    self.room_code = message
+                else:
+                    self.send_all(Signal.NEW_CLIENT, message)
+            elif signal == Signal.NEW_CLIENT:
+                ip, port = room_decode(message)
+                self.clients.append((ip, port))
+                for player in self.players:
+                    self.send(-1, Signal.NEW_PLAYER, player)
+                self.add_player("guest" + str(len(self.players)))
+                self.send_all(Signal.NEW_PLAYER, self.players[-1])
+            elif signal == Signal.NEW_PLAYER:
+                self.add_player(message)
+
 
     def kill_thread(self):
         """"Stop the listener from listening and give it the kill signal"""
-        if self.hosting:
+        if self.listener_alive:
             # Don't bother unless there's a thread to kill
             self.kill_q.put(Signal.CLOSE)
             dummy = socket.socket()
-            dummy.connect((socket.gethostname(), DEFAULT_PORT))
+            dummy.connect((socket.gethostname(), self.port))
             dummy.send(b"")
             self.hosting = False
+            self.listener.join()
 
     def dialog(self, info, message):
         tkinter.messagebox.showinfo(info, message)
@@ -91,20 +133,21 @@ def listener_thread(connection_q, kill_q):
                 port += 1
                 success = False
         ip, port = server.getsockname()
-        connection_q.put((Signal.INT_IP, ip.encode()))
-        connection_q.put((Signal.INT_PORT, port))
+        room_code = room_encode(ip, port)
+        connection_q.put((Signal.ROOM_CODE, room_code))
         server.listen(1)
         while True:
             c, address = server.accept()
-            message = c.recv(SOCKET_BUFFER_SIZE).decode()
+            total_message = c.recv(SOCKET_BUFFER_SIZE)
             # There is really no need to check WHAT is on the kill queue
             if not kill_q.empty():
                 if kill_q.get(block=False) == Signal.CLOSE:
                     break
             c.close()
-            connection_q.put((Signal.EXT_MESSAGE, message))
+            signal, message = total_message[0], total_message[1:]
+            connection_q.put((Signal(signal), message.decode()))
     except OSError:
-        connection_q.put((Signal.ERROR_PORT, "Failed to find an available port."))
+        connection_q.put((Signal.ERROR, "Failed to find an available port."))
     server.close()
 
 
@@ -167,9 +210,10 @@ def remove_noise(b):
     return a
 
 
-def ip_encode(ip):
-    return num_to_alpha(add_noise(ip_to_num(ip)))
+def room_encode(ip, port):
+    return num_to_alpha(add_noise(ip_to_num(ip))) + num_to_alpha(port)
 
 
-def ip_decode(s):
-    return num_to_ip(remove_noise(alpha_to_num(s)))
+def room_decode(s):
+    first, second = s[:-3], s[-3:]
+    return num_to_ip(remove_noise(alpha_to_num(first))), alpha_to_num(second)

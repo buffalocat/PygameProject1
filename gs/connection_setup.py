@@ -44,19 +44,23 @@ class GSConnectionSetup(GameState):
 
     def host_room(self):
         """Become the host of a room"""
-        if self.room.hosting:
-            self.dialog("Error", "You're already hosting a room.\n"
-                        "You can back out to the main menu to stop.")
+        if self.room.room_code:
+            self.dialog("Error", "You're already in a room.\n"
+                        "You can back out to the main menu to leave.")
         else:
-            self.room.hosting = True
-            self.room.listen()
+            self.room.host()
 
     def connect_to_room(self):
-        if self.room.hosting:
-            self.dialog("Error", "You're already hosting a room.\n"
-                        "You can back out to the main menu to stop.")
+        if self.room.room_code == "":
+            code = self.mgr.root.clipboard_get()
+            self.room.connect(code)
         else:
-            self.dialog("Error", "This isn't implemented yet lol")
+            self.dialog("Error", "You're already in a room.\n"
+                                 "You can back out to the main menu to leave.")
+
+    def print_players(self):
+        self.dialog("Player List", f"The players are {self.room.players}")
+
 
     def dialog(self, info, message):
         tkinter.messagebox.showinfo(info, message)
@@ -70,6 +74,7 @@ class ConnectionSetupMenu(Menu):
         self.add_item("Connect To Room (Paste from Clipboard)", "connect_to_room")
         self.add_item("Begin Game (Go)", "play_go")
         self.add_item("Return to Menu", "previous_state")
+        self.add_item("Print Players", "print_players")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD
         self.height = 40

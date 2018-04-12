@@ -12,13 +12,6 @@ class GSPlaying(GameState):
         pass
 
 
-
-
-class Player:
-    def __init__(self, id, name, address):
-        pass
-
-
 class Game:
     def __init__(self):
         pass
