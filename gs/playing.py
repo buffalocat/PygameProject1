@@ -16,8 +16,7 @@ class GSPlaying(GameState):
         self.players = [Go.BLACK, Go.WHITE]
 
     def handle_input(self):
-        if self.game.color == self.players[self.room.id]:
-            self.game.handle_input()
+        self.game.handle_input(self.players[self.room.id])
 
     def update(self):
         super().update()
@@ -65,16 +64,16 @@ class GoGame(Game):
         self.board_init(BOARD_SIZE)
         self.color = Go.BLACK
 
-    def handle_input(self):
+    def handle_input(self, player_color):
         for event in pygame.event.get():
             if event.type == MOUSEBUTTONDOWN:
                 pos = self.mouse_pos(event.pos)
                 if pos is not None:
                     if event.button == MB_LEFT:
-                        self.try_move(pos)
+                        if self.color == player_color:
+                            self.try_move(pos)
 
     def try_move(self, pos):
-        self.state.send_move(pos)
         new = self.board[pos]
         if new.color == Go.EMPTY:
             x, y = pos
@@ -98,6 +97,7 @@ class GoGame(Game):
                         legal = True
                     threat.append(cur)
             if legal:
+                self.state.send_move(pos)
                 new.color = self.color
                 for piece in join:
                     new.adopt(piece.root)
