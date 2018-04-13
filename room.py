@@ -16,20 +16,48 @@ class Signal(IntEnum):
     """Indicators of what kind of data is being passed between threads"""
     ERROR = 1
     ROOM_CODE = 2
-    CLOSE = 7
+
+    QUIT = 4
+
+    KILL_LISTENER = 7
 
     NEW_CLIENT = 14
     NEW_PLAYER = 16
+    TELL_ID = 18
     DISCONNECT = 20
 
-    GAME_MOVE = 32
+    START_GAME = 32
+    GAME_MOVE = 36
+
+STR_SIGNALS = [Signal.ERROR,
+               Signal.ROOM_CODE,
+               Signal.KILL_LISTENER,
+               Signal.NEW_PLAYER,
+               Signal.NEW_CLIENT]
+
+INT_SIGNALS = [Signal.TELL_ID,
+               Signal.QUIT,
+               Signal.START_GAME]
+
+LIST_SIGNALS = [Signal.GAME_MOVE]
+
+
+class GameID(IntEnum):
+    """ID numbers for game types.  Must fit in one byte"""
+    GO = 1
+
 
 class Room:
-    def __init__(self):
+    def __init__(self, state):
+        self.state = state
         self.hosting = False
         self.listener_alive = False
         self.room_code = ""
         self.port = 0
+        # id initializes to an invalid value
+        # and must be set upon room creation/joining
+        self.id = -1
+        # the list of players is currently not very useful
         self.players = []
         # A list of (IP address, port) pairs we need to communicate with
         # If we're a guest, this just contains the host IP
@@ -46,19 +74,36 @@ class Room:
     def send_all(self, signal, message):
         """Relay a message to all clients"""
         total_message = self.join_message(signal, message)
-        for ip, port in self.clients:
-            s = socket.socket()
-            s.connect((ip, port))
-            s.send(total_message)
+        for x in self.clients:
+            if x is not None:
+                try:
+                    s = socket.socket()
+                    s.connect(x)
+                    s.send(total_message)
+                except ConnectionError:
+                    self.dialog("Error", "Friend has disconnected.")
 
     def send(self, player_id, signal, message):
         total_message = self.join_message(signal, message)
-        s = socket.socket()
-        s.connect(self.clients[player_id])
-        s.send(total_message)
+        try:
+            s = socket.socket()
+            s.connect(self.clients[player_id])
+            s.send(total_message)
+        except ConnectionError:
+            self.dialog("Error", "Friend has disconnected.")
 
+    # This can surely be improved, but it'll work for now...
     def join_message(self, signal, message):
-        return bytes([signal]) + message.encode()
+        if signal in STR_SIGNALS:
+            return bytes([signal]) + message.encode()
+        elif signal in INT_SIGNALS:
+            return bytes([signal, message])
+        elif signal in LIST_SIGNALS:
+            # In this case, message is a list of ints as bytes
+            return bytes([signal] + message)
+        else:
+            self.dialog("Error", "Not sure what to do with Signal (not categorized)")
+            return b""
 
     def listen(self):
         self.listener = threading.Thread(target=listener_thread,
@@ -70,6 +115,8 @@ class Room:
         """Begin hosting a new room"""
         self.hosting = True
         self.add_player("host")
+        self.clients.append(None)
+        self.id = 0
         self.listen()
 
     def connect(self, code):
@@ -79,11 +126,10 @@ class Room:
         self.clients.append((ip, port))
         self.listen()
 
-
+    # Pretty much everything important goes in this method
     def check_q(self):
         if not self.connection_q.empty():
             signal, message = self.connection_q.get(block=False)
-            print(f"Got a message of type {signal}: {message}")
             if signal == Signal.ERROR:
                 self.hosting = False
                 self.dialog("Error", message)
@@ -99,22 +145,34 @@ class Room:
                 self.clients.append((ip, port))
                 for player in self.players:
                     self.send(-1, Signal.NEW_PLAYER, player)
+                self.send(-1, Signal.TELL_ID, len(self.players))
                 self.add_player("guest" + str(len(self.players)))
                 self.send_all(Signal.NEW_PLAYER, self.players[-1])
             elif signal == Signal.NEW_PLAYER:
                 self.add_player(message)
+            elif signal == Signal.TELL_ID:
+                self.id = int.from_bytes(message, byteorder="little")
+            elif signal == Signal.QUIT:
+                self.state.previous_state()
+            elif signal == Signal.START_GAME:
+                self.state.start_game()
+            elif signal == Signal.GAME_MOVE:
+                self.state.game.try_move(tuple(message))
 
+
+    def start_signal(self):
+        self.send_all(Signal.START_GAME, GameID.GO)
 
     def kill_thread(self):
         """"Stop the listener from listening and give it the kill signal"""
         if self.listener_alive:
             # Don't bother unless there's a thread to kill
-            self.kill_q.put(Signal.CLOSE)
+            self.send_all(Signal.QUIT, self.id)
+            self.kill_q.put(Signal.KILL_LISTENER)
             dummy = socket.socket()
             dummy.connect((socket.gethostname(), self.port))
             dummy.send(b"")
             self.hosting = False
-            self.listener.join()
 
     def dialog(self, info, message):
         tkinter.messagebox.showinfo(info, message)
@@ -135,17 +193,20 @@ def listener_thread(connection_q, kill_q):
         ip, port = server.getsockname()
         room_code = room_encode(ip, port)
         connection_q.put((Signal.ROOM_CODE, room_code))
-        server.listen(1)
+        server.listen(5)
         while True:
             c, address = server.accept()
             total_message = c.recv(SOCKET_BUFFER_SIZE)
             # There is really no need to check WHAT is on the kill queue
             if not kill_q.empty():
-                if kill_q.get(block=False) == Signal.CLOSE:
+                if kill_q.get(block=False) == Signal.KILL_LISTENER:
                     break
             c.close()
-            signal, message = total_message[0], total_message[1:]
-            connection_q.put((Signal(signal), message.decode()))
+            signal, message = Signal(total_message[0]), total_message[1:]
+            if signal in STR_SIGNALS:
+                connection_q.put((Signal(signal), message.decode()))
+            else:
+                connection_q.put((Signal(signal), message))
     except OSError:
         connection_q.put((Signal.ERROR, "Failed to find an available port."))
     server.close()

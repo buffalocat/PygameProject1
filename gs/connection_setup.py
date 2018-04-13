@@ -5,7 +5,7 @@ import tkinter
 from font import FONT_MEDIUM
 from game_constants import *
 from game_state import GameState
-from gs.playing import GSPlaying, Game
+from gs.playing import GSPlaying, GoGame
 from room import Room
 from widget import Panel, Menu, TextLines
 
@@ -15,7 +15,7 @@ class GSConnectionSetup(GameState):
         super().__init__(mgr, parent)
         self.root.set_color(RED)
         self.root.add(ConnectionSetupMenu(self, (10, 10)))
-        self.room = Room()
+        self.room = Room(self)
 
     def update(self):
         super().update()
@@ -30,7 +30,9 @@ class GSConnectionSetup(GameState):
                         "Either Host a room or Connect to someone else's.")
         else:
             self.dialog("Room Info", f"Room Code: {self.room.room_code}\n"
-                                     f"Port: {self.room.port}")
+                                     f"Port: {self.room.port}\n"
+                                     f"ID: {self.room.id}\n"
+                                     f"Players: {self.room.players}\n")
 
     def copy_room_code(self):
         if self.room.room_code == "":
@@ -39,8 +41,15 @@ class GSConnectionSetup(GameState):
             self.mgr.root.clipboard_clear()
             self.mgr.root.clipboard_append(self.room.room_code)
 
-    def play_go(self):
-        GSPlaying(self.mgr, self, self.room, Game())
+    def host_start_game(self):
+        if self.room.hosting:
+            self.room.start_signal()
+            self.start_game()
+        else:
+            self.dialog("Error", "You are not the Host of a Room")
+
+    def start_game(self):
+        GSPlaying(self.mgr, self, self.room, GoGame)
 
     def host_room(self):
         """Become the host of a room"""
@@ -58,9 +67,6 @@ class GSConnectionSetup(GameState):
             self.dialog("Error", "You're already in a room.\n"
                                  "You can back out to the main menu to leave.")
 
-    def print_players(self):
-        self.dialog("Player List", f"The players are {self.room.players}")
-
 
     def dialog(self, info, message):
         tkinter.messagebox.showinfo(info, message)
@@ -72,9 +78,8 @@ class ConnectionSetupMenu(Menu):
         self.add_item("Show Room Status", "show_room_info")
         self.add_item("Copy Room Code to Clipboard", "copy_room_code")
         self.add_item("Connect To Room (Paste from Clipboard)", "connect_to_room")
-        self.add_item("Begin Game (Go)", "play_go")
+        self.add_item("Begin Game (Go)", "host_start_game")
         self.add_item("Return to Menu", "previous_state")
-        self.add_item("Print Players", "print_players")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD
         self.height = 40

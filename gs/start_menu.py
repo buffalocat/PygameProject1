@@ -37,7 +37,7 @@ class StartMenu(Menu):
         # We need to give state_manager a play method!
         # self.add_item("Play", "play")
         self.add_item("Quit", "terminate")
-        self.add_item("Play Go (1 Player)", "play_go")
+        self.add_item("Play Go (1 Player)", "host_start_game")
         self.add_item("Set Up Room", "connection_setup")
         self.add_item("Color Select", "color_select")
         self.color_def = NAVY_BLUE
