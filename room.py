@@ -56,7 +56,7 @@ class Room:
         self.port = 0
         # id initializes to an invalid value
         # and must be set upon room creation/joining
-        self.id = -1
+        self.id = 255
         # the list of players is currently not very useful
         self.players = []
         # A list of (IP address, port) pairs we need to communicate with
