@@ -1,39 +1,10 @@
-This is a place to put explanations, reminders, and conventions
-
-Imports:
-Don't worry too much about redundant imports, but also
-don't import something if it's obviously unnecessary!
-Don't use "from module import *" unless it's from either
-pygame.constants or game_constants (our file for constants).
-Avoid using "from" imports unless the it's clear where the
-thing you're importing came from.  If you see greyed out
-imports, feel free to delete them.
-
-Game States:
-The idea of game states is to separate code that occurs in
-different situations.  Game States should occur in a stack
-almost all of the time; should it be necessary, we can modify
-the way the game state manager works, but I think this is
-avoidable anyway.
-
-Drawing Surfaces:
-It may be useful later to have many iterations of drawing,
-but right now there are really only two stages to this;
-the current state has a surface which it draws to,
-and when the GSM calls draw(), it draws the current state's
-surface onto its own surface.  One justification for letting
-each state keep its own surface is that, for instance,
-when the game pauses we can show the pause menu on top of the
-previous state's surface.
-
-Host and Client:
-Roughly speaking, the host keeps track of everything that happens,
-and just tells the client(s) what happened.  Of course, the
-clients share information with the host, so the relationship is
-nearly symmetric, but if there's a disagreement, the host's
-version of reality takes precedence.
-
 TO DO:
-Implement GUI elements (avoid using tkinter, so pygame doesn't lose focus)
-Determine the protocol for connecting to host
-Abstract GSConnectionSetup a little - not everything belongs in the game state class
+- Implement certain GUI elements from scratch
+  (or figure out how to regain focus automatically from tkinter)
+- Make the online communication protocol neater and safer
+- Determine what can be abstracted into the Game class
+  (this may not become clear until we've implemented a few different games)
+- Unify local and online implementations of multiplayer games
+  (the single player Go code is still there, but it's duplicated)
+- Complete the implementation of Go with passing, scoring, and a ko rule (maybe)
+- Make things prettier
