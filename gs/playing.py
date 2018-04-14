@@ -12,11 +12,10 @@ class GSPlaying(GameState):
         self.root.set_color(LIGHT_BROWN)
         self.room = room
         self.room.state = self
-        self.game = game(self)
-        self.players = [Go.BLACK, Go.WHITE]
+        self.game = game(self, self.room.id)
 
     def handle_input(self):
-        self.game.handle_input(self.players[self.room.id])
+        self.game.handle_input()
 
     def update(self):
         super().update()
@@ -51,31 +50,47 @@ LINE_WIDTH = 3
 
 ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
-
-class Go(IntEnum):
+class GoPiece(IntEnum):
     EMPTY = 0
     BLACK = 1
     WHITE = 2
     INVALID = 3
 
-class GoGame(Game):
-    def __init__(self, state):
+GO_PLAYERS = [GoPiece.BLACK, GoPiece.WHITE]
+
+PIECE_COLOR = {GoPiece.BLACK: BLACK,
+               GoPiece.WHITE: WHITE}
+
+class Go(Game):
+    def __init__(self, state, player_id=None):
         super().__init__(state)
         self.board_init(BOARD_SIZE)
-        self.color = Go.BLACK
+        self.player_color = GO_PLAYERS[player_id]
+        self.color = GoPiece.BLACK
+        self.init_hover()
 
-    def handle_input(self, player_color):
+    def init_hover(self):
+        self.hover = {}
+        for color in GO_PLAYERS:
+            self.hover[color] = pygame.Surface((HALF_MESH*2, HALF_MESH*2), pygame.SRCALPHA)
+            pygame.draw.circle(self.hover[color], (*PIECE_COLOR[color], 128),
+                               (HALF_MESH, HALF_MESH), PIECE_SIZE)
+
+    def handle_input(self):
         for event in pygame.event.get():
             if event.type == MOUSEBUTTONDOWN:
                 pos = self.mouse_pos(event.pos)
                 if pos is not None:
                     if event.button == MB_LEFT:
-                        if self.color == player_color:
+                        if self.color_match():
                             self.try_move(pos)
+
+    def color_match(self):
+        return self.player_color is None or self.color == self.player_color
 
     def try_move(self, pos):
         new = self.board[pos]
-        if new.color == Go.EMPTY:
+        if new.color == GoPiece.EMPTY:
             x, y = pos
             # Is this move allowed?
             legal = False
@@ -85,7 +100,7 @@ class GoGame(Game):
             threat = []
             for dx, dy in ADJ:
                 cur = self.board[(x+dx, y+dy)].root
-                if cur.color == Go.EMPTY:
+                if cur.color == GoPiece.EMPTY:
                     legal = True
                     new.liberties.add(cur.pos)
                 elif cur.color == self.color:
@@ -110,10 +125,10 @@ class GoGame(Game):
                 new.liberties = set()
 
     def opp_color(self):
-        if self.color == Go.BLACK:
-            return Go.WHITE
+        if self.color == GoPiece.BLACK:
+            return GoPiece.WHITE
         else:
-            return Go.BLACK
+            return GoPiece.BLACK
 
     def board_init(self, size):
         self.board = {}
@@ -123,17 +138,21 @@ class GoGame(Game):
         for x in range(-1, size + 1):
             for y in range(-1, size + 1):
                 if 0 <= x < size and 0 <= y < size:
-                    self.board[(x,y)] = Region(Go.EMPTY, (x, y))
+                    self.board[(x,y)] = Region(GoPiece.EMPTY, (x, y))
                 else:
-                    self.board[(x,y)] = Region(Go.INVALID, (x, y))
+                    self.board[(x,y)] = Region(GoPiece.INVALID, (x, y))
 
     def board_to_int(self):
         """Compactly represent the board as an int"""
         pass
 
-    def pos(self, x, y):
-        """Convert board coordinates to pixels"""
+    def pos_center(self, x, y):
+        """Convert board coordinates to pixels (center of piece)"""
         return (HALF_MESH * (1 + 2*x), HALF_MESH * (1 + 2*y))
+
+    def pos_topleft(self, x, y):
+        """Convert board coordinates to pixels (top left corner of piece)"""
+        return (HALF_MESH * 2*x, HALF_MESH * 2*y)
 
     def mouse_pos(self, mpos):
         """Find the board position closest to a pixel position"""
@@ -147,15 +166,18 @@ class GoGame(Game):
 
     def draw_board(self, surf):
         for i in range(BOARD_SIZE):
-            pygame.draw.line(surf, BLACK, self.pos(i, 0), self.pos(i, BOARD_SIZE - 1), LINE_WIDTH)
-            pygame.draw.line(surf, BLACK, self.pos(0, i), self.pos(BOARD_SIZE - 1, i), LINE_WIDTH)
+            pygame.draw.line(surf, BLACK, self.pos_center(i, 0), self.pos_center(i, BOARD_SIZE - 1), LINE_WIDTH)
+            pygame.draw.line(surf, BLACK, self.pos_center(0, i), self.pos_center(BOARD_SIZE - 1, i), LINE_WIDTH)
         for x in range(BOARD_SIZE):
             for y in range(BOARD_SIZE):
-                ishi = self.board[(x,y)].color
-                if ishi == Go.BLACK:
-                    pygame.draw.circle(surf, BLACK, self.pos(x, y), PIECE_SIZE)
-                elif ishi == Go.WHITE:
-                    pygame.draw.circle(surf, WHITE, self.pos(x, y), PIECE_SIZE)
+                color = self.board[(x,y)].color
+                if color in GO_PLAYERS:
+                    pygame.draw.circle(surf, PIECE_COLOR[self.board[(x,y)].color], self.pos_center(x, y), PIECE_SIZE)
+        # Draw a "phantom piece"
+        hover = self.mouse_pos(pygame.mouse.get_pos())
+        if hover is not None and self.color_match():
+            if self.board[hover].color == GoPiece.EMPTY:
+                surf.blit(self.hover[self.color], self.pos_topleft(*hover))
 
 
 class Region:
@@ -166,7 +188,7 @@ class Region:
 
     def reset(self):
         # When reset is used later, "empty" is the default state
-        self.color = Go.EMPTY
+        self.color = GoPiece.EMPTY
         # root is an arbitrary "representative" point of the region
         self.root = self
         self.children = {self}
@@ -185,10 +207,10 @@ class Region:
             piece.eliminate(board)
 
     def eliminate(self, board):
-        if self.color == Go.BLACK:
-            opp = Go.WHITE
+        if self.color == GoPiece.BLACK:
+            opp = GoPiece.WHITE
         else:
-            opp = Go.BLACK
+            opp = GoPiece.BLACK
         # We will end up modifying self.children during this loop
         # But we're just setting it to a new set, which doesn't alter the one we're looping over
         for child in self.children:

@@ -5,7 +5,7 @@ import tkinter
 from font import FONT_MEDIUM
 from game_constants import *
 from game_state import GameState
-from gs.playing import GSPlaying, GoGame
+from gs.playing import GSPlaying, Go
 from room import Room
 from widget import Panel, Menu, TextLines
 
@@ -49,7 +49,7 @@ class GSConnectionSetup(GameState):
             self.dialog("Error", "You are not the Host of a Room")
 
     def start_game(self):
-        GSPlaying(self.mgr, self, self.room, GoGame)
+        GSPlaying(self.mgr, self, self.room, Go)
 
     def host_room(self):
         """Become the host of a room"""
