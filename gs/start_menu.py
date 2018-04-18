@@ -34,12 +34,8 @@ class GSStartMenu(GameState):
 class StartMenu(Menu):
     def __init__(self, parent, pos):
         super().__init__(parent, pos)
-        # We need to give state_manager a play method!
-        # self.add_item("Play", "play")
+        self.add_item("Play Go (Local)", "play_go")
         self.add_item("Quit", "terminate")
-        self.add_item("Play Go (1 Player)", "play_go")
-        self.add_item("Set Up Room", "connection_setup")
-        self.add_item("Color Select", "color_select")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD
         self.height = 80

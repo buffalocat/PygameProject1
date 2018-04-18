@@ -1,3 +1,9 @@
+"""A room where players gather to play a game"""
+
+# Online multiplayer doesn't work yet, but the
+# rough idea is there.  For now, I'll just remove
+# the option from the main menu and leave this as is.
+
 import random
 import socket
 import threading
@@ -123,6 +129,7 @@ class Room:
         """Connect to an existing room"""
         self.room_code = code
         ip, port = room_decode(code)
+        print(ip, port)
         self.clients.append((ip, port))
         self.listen()
 
@@ -179,18 +186,20 @@ class Room:
 
 
 def listener_thread(connection_q, kill_q):
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     try:
         port = DEFAULT_PORT
         success = False
+        host = socket.gethostname()
         while not success and port < MAX_PORT:
             try:
-                server.bind((socket.gethostname(), port))
+                server.bind((host, port))
                 success = True
             except OSError:
                 port += 1
                 success = False
-        ip, port = server.getsockname()
+        address = socket.getaddrinfo(host, port, socket.AF_INET6)
+        ip = address[0][4][0]
         room_code = room_encode(ip, port)
         connection_q.put((Signal.ROOM_CODE, room_code))
         server.listen(5)
@@ -215,7 +224,7 @@ def listener_thread(connection_q, kill_q):
 # These are some very simple encoding functions, so you don't
 # have to send your friends your "raw IP address"
 # (It's not meant to be a "security" measure, really)
-def ip_to_num(ip):
+def ipv4_to_num(ip):
     ip_parts = map(int, ip.split("."))
     ip_num = 0
     for x in ip_parts:
@@ -223,12 +232,27 @@ def ip_to_num(ip):
         ip_num += x
     return ip_num
 
-
-def num_to_ip(n):
+def num_to_ipv4(n):
     ip_parts = []
     for _ in range(4):
         ip_parts.append(str(n % 256))
         n >>= 8
+    return ".".join(ip_parts[::-1])
+
+def ipv6_to_num(ip):
+    ip_parts = ip.split(":")
+    print(ip, ip_parts)
+    ip_num = 0
+    for x in ip_parts:
+        ip_num <<= 16
+        ip_num += int("0x" + x, 16)
+    return ip_num
+
+def num_to_ipv6(n):
+    ip_parts = []
+    for _ in range(4):
+        ip_parts.append(hex(n % (1 << 16))[2:])
+        n >>= 16
     return ".".join(ip_parts[::-1])
 
 
@@ -272,9 +296,14 @@ def remove_noise(b):
 
 
 def room_encode(ip, port):
-    return num_to_alpha(add_noise(ip_to_num(ip))) + num_to_alpha(port)
+    # dummy version
+    return ip + "_" + str(port)
+    #return num_to_alpha(add_noise(ipv6_to_num(ip))) + num_to_alpha(port)
 
 
 def room_decode(s):
-    first, second = s[:-3], s[-3:]
-    return num_to_ip(remove_noise(alpha_to_num(first))), alpha_to_num(second)
+    # dummy version
+    first, second = s.split("_")
+    return first, int(second)
+    #first, second = s[:-3], s[-3:]
+    #return num_to_ipv6(remove_noise(alpha_to_num(first))), alpha_to_num(second)

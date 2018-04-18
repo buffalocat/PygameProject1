@@ -1,3 +1,8 @@
+"""A generic game state (not yet implemented)"""
+
+# Note: multiplayer doesn't really exist yet,
+# and this would require online/local rooms to be unified
+
 import pygame
 from enum import IntEnum
 
@@ -223,7 +228,3 @@ class Region:
             cur = board[(x + dx, y + dy)].root
             if cur.color == color:
                 cur.liberties.add(self.pos)
-
-    def print(self):
-        print(f"Has children {list(x.pos for x in self.children)}\n"
-              f"Liberties at {list(x for x in self.liberties)}\n\n")

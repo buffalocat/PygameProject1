@@ -76,12 +76,12 @@ class GSColorSelect(GameState):
         self.text.font = FONT_SMALL
         self.text.height = 20
         self.text.add_line("Use the arrow keys to change saturation (This may take a moment)")
-        self.text.add_line(f"The current color is {self.color_rgb()}")
+        self.text.add_line("")
         self.text.add_line("Press Enter to return to menu")
 
     def draw(self):
         super().draw()
-        self.text.set_line(1, f"The current color is {self.color_rgb()}")
+        self.text.set_line(1, f"Current color is 0x{self.color:x} = {self.color_rgb()}")
         self.text.draw(self.surf, (60, WINDOW_HEIGHT - 65))
 
 class ColorChooser(Panel):
