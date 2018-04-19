@@ -5,7 +5,6 @@ import tkinter
 from font import FONT_MEDIUM
 from game_constants import *
 from game_state import GameState
-from gs.playing import GSPlaying, Go
 from room import Room
 from widget import Panel, Menu, TextLines
 
@@ -41,16 +40,6 @@ class GSConnectionSetup(GameState):
             self.mgr.root.clipboard_clear()
             self.mgr.root.clipboard_append(self.room.room_code)
 
-    def host_start_game(self):
-        if self.room.hosting:
-            self.room.start_signal()
-            self.start_game()
-        else:
-            self.dialog("Error", "You are not the Host of a Room")
-
-    def start_game(self):
-        GSPlaying(self.mgr, self, self.room, Go)
-
     def host_room(self):
         """Become the host of a room"""
         if self.room.room_code:
@@ -78,7 +67,6 @@ class ConnectionSetupMenu(Menu):
         self.add_item("Show Room Status", "show_room_info")
         self.add_item("Copy Room Code to Clipboard", "copy_room_code")
         self.add_item("Connect To Room (Paste from Clipboard)", "connect_to_room")
-        self.add_item("Begin Game (Go)", "host_start_game")
         self.add_item("Return to Menu", "previous_state")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD
