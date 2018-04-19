@@ -61,7 +61,7 @@ class BGGrid(Background):
             y += self.mesh
 
 
-COLOR_SHIFT = 10
+COLOR_SHIFT = 15
 
 class BGColorChangeGrid(Background):
     def __init__(self, h, w, color):
@@ -105,7 +105,6 @@ class BGColorChangeGrid(Background):
             self.yoff += 1
             if self.yoff >= self.hn:
                 self.yoff -= self.hn
-        print(f"xoff: {self.xoff}, yoff: {self.yoff}")
 
     def shift_color(self):
         for c in self.colors.values():
@@ -122,8 +121,8 @@ class BGColorChangeGrid(Background):
                                       self.mesh, self.mesh), 0)
 
 
-COLOR_VAR = 30
-COLOR_VEL = 20
+COLOR_VAR = 20
+COLOR_VEL = 10
 
 class SineColor:
     def __init__(self, color, amp):
@@ -136,13 +135,16 @@ class SineColor:
     def randomize(self, var):
         for i in range(3):
             self.rgb[i] += var*(2*random() - 1)
-            if self.rgb[i] < 0:
-                self.rgb[i] = 0
-            elif self.rgb[i] > 255:
-                self.rgb[i] = 255
 
     def shift(self):
         self.angle = (self.angle + self.vel) % (2*math.pi)
 
     def color(self):
-        return tuple(c + self.amp*math.cos(self.angle) for c in self.rgb)
+        return tuple(clamp_rgb(c + self.amp*math.cos(self.angle)) for c in self.rgb)
+
+def clamp_rgb(x):
+    if x < 0:
+        return 0
+    elif x > 255:
+        return 255
+    return x
