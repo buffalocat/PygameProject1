@@ -1,6 +1,8 @@
 """A collection of classes for building a GUI"""
 
 import pygame
+
+from background import BGSolid
 from game_constants import *
 
 
@@ -21,9 +23,9 @@ class Widget:
 
 class Panel(Widget):
     """A rectangular widget which contains relatively placed child widgets"""
-    def __init__(self, dims, pos, color=None):
+    def __init__(self, dims, pos):
         super().__init__(pos)
-        self.color = color
+        self.bg = None
         self.surf = pygame.Surface(dims, flags=SRCALPHA)
         self.children = []  # A list of widgets in this panel
         self.focus = None  # Does one child have the focus?
@@ -41,7 +43,10 @@ class Panel(Widget):
             print("Attempted to remove a nonexistent widget")
 
     def set_color(self, color):
-        self.color = color
+        self.bg = BGSolid(color)
+
+    def set_bg(self, bg):
+        self.bg = bg
 
     def set_focus(self, child=None):
         if child is not None and child not in self.children:
@@ -57,13 +62,14 @@ class Panel(Widget):
 
     # A panel has no behavior, so it just updates its children
     def update(self):
+        self.bg.update()
         for child in self.children:
             child.update()
 
     def draw(self, surf):
         # First fill the panel's surface with its background color
-        if self.color is not None:
-            self.surf.fill(self.color)
+        if self.bg is not None:
+            self.bg.draw(self.surf)
         # Now draw all of its child objects on top
         if self.focus is None:
             for child in self.children:
