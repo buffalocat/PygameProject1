@@ -1,11 +1,11 @@
 """A place to experiment with making pretty images"""
-import math
-
 import pygame
 from pygame.rect import Rect
 
 from game_constants import *
+
 from random import random
+from scipy.spatial import Delaunay
 
 class Background:
     def draw(self, surf):
@@ -108,7 +108,7 @@ class BGColorChangeGrid(Background):
 
     def shift_color(self):
         for c in self.colors.values():
-            c.shift()
+            c.update()
 
     def draw(self, surf):
         for i in range(self.wn):
@@ -129,7 +129,7 @@ class SineColor:
     def __init__(self, color, amp):
         self.rgb = list(color)
         self.randomize(COLOR_VAR)
-        self.angle = 2*math.pi*random()
+        self.angle = 2*np.pi*random()
         self.amp = amp*random()
         self.vel = COLOR_VEL*random()/100
 
@@ -137,11 +137,11 @@ class SineColor:
         for i in range(3):
             self.rgb[i] += var*(2*random() - 1)
 
-    def shift(self):
-        self.angle = (self.angle + self.vel) % (2*math.pi)
+    def update(self):
+        self.angle = (self.angle + self.vel) % (2*np.pi)
 
     def color(self):
-        return tuple(clamp_rgb(c + self.amp*math.cos(self.angle)) for c in self.rgb)
+        return tuple(clamp_rgb(c + self.amp*np.cos(self.angle)) for c in self.rgb)
 
 def clamp_rgb(x):
     if x < 0:
@@ -151,17 +151,29 @@ def clamp_rgb(x):
     return x
 
 
+CORNERS = np.array([[0, 0], [WINDOW_WIDTH, 0], [0, WINDOW_HEIGHT], [WINDOW_WIDTH, WINDOW_HEIGHT]])
+
+
 class BGCrystal(Background):
     def __init__(self, w, h, color):
         self.w = w
         self.h = h
         self.color = color
-        self.points = point_cluster(1000, (500, 400), 200)
+        self.points = np.concatenate((point_cluster(250, (400, 300),500), CORNERS))
+        self.tri = Delaunay(self.points).simplices
+        self.colors = [SineColor(color, COLOR_SHIFT) for t in self.tri]
+
+    def update(self):
+        for c in self.colors:
+            c.update()
 
     def draw(self, surf):
         surf.fill(BLACK)
         for p in self.points:
             pygame.draw.circle(surf, self.color, p, POINT_RAD, 0)
+        for i in range(len(self.tri)):
+            pygame.draw.polygon(surf, self.colors[i].color(), [self.points[j] for j in self.tri[i]], 0)
+
 
 def point_cluster(n, center, radius):
      angle_r = np.random.rand(n) * (2 * np.pi)

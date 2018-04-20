@@ -2,7 +2,7 @@
 
 import pygame
 
-from background import BGGrid, BGColorChangeGrid
+from background import BGGrid, BGColorChangeGrid, BGCrystal
 from font import FONT_LARGE
 from game_constants import *
 from game_state import GameState
@@ -16,7 +16,7 @@ from widget import Menu
 class GSStartMenu(GameState):
     def __init__(self, mgr):
         super().__init__(mgr)
-        self.root.set_bg(BGColorChangeGrid(WINDOW_HEIGHT, WINDOW_WIDTH, (200,100,200)))
+        self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, (200,100,200)))
         self.root.add(StartMenu(self, (10, 10)))
 
     def play_go(self):
