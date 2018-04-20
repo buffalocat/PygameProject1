@@ -1,4 +1,5 @@
 from pygame.constants import *
+import numpy as np
 
 # This prints shit to the screen
 DEBUG = True

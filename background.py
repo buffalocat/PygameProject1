@@ -15,7 +15,7 @@ class Background:
         pass
 
 
-class BGSolid:
+class BGSolid(Background):
     def __init__(self, color):
         self.color = color
 
@@ -31,7 +31,7 @@ THICKNESS = 3
 
 # len(colors) >= 2
 class BGGrid(Background):
-    def __init__(self, h, w, colors):
+    def __init__(self, w, h, colors):
         self.h = h
         self.w = w
         self.colors = colors
@@ -62,6 +62,7 @@ class BGGrid(Background):
 
 
 COLOR_SHIFT = 15
+POINT_RAD = 2
 
 class BGColorChangeGrid(Background):
     def __init__(self, h, w, color):
@@ -70,7 +71,6 @@ class BGColorChangeGrid(Background):
         self.mesh = MESH_MIN + (MESH_MAX - MESH_MIN)*random()
         self.wn = int(w//self.mesh + 2)
         self.hn = int(h//self.mesh + 2)
-        print(self.hn)
         self.xoff = 0
         self.yoff = 0
         self.colors = {(x,y): SineColor(color, COLOR_SHIFT)
@@ -118,13 +118,14 @@ class BGColorChangeGrid(Background):
                 pygame.draw.rect(surf, self.colors[(i_fixed, j_fixed)].color(),
                                  Rect(self.x + (i - 1)*self.mesh,
                                       self.y + (j - 1)*self.mesh,
-                                      self.mesh, self.mesh), 0)
+                                      self.mesh + 1, self.mesh + 1), 0)
 
 
 COLOR_VAR = 20
 COLOR_VEL = 10
 
 class SineColor:
+    """A class with a color that oscillates in value over time"""
     def __init__(self, color, amp):
         self.rgb = list(color)
         self.randomize(COLOR_VAR)
@@ -148,3 +149,25 @@ def clamp_rgb(x):
     elif x > 255:
         return 255
     return x
+
+
+class BGCrystal(Background):
+    def __init__(self, w, h, color):
+        self.w = w
+        self.h = h
+        self.color = color
+        self.points = point_cluster(1000, (500, 400), 200)
+
+    def draw(self, surf):
+        surf.fill(BLACK)
+        for p in self.points:
+            pygame.draw.circle(surf, self.color, p, POINT_RAD, 0)
+
+def point_cluster(n, center, radius):
+     angle_r = np.random.rand(n) * (2 * np.pi)
+     radius_r = (np.random.rand(n) ** 0.5) * radius
+     points = np.zeros((n, 2))
+     points[:] = np.array(center)
+     points[:, 0] += np.cos(angle_r) * radius_r
+     points[:, 1] += np.sin(angle_r) * radius_r
+     return points.astype(int)
