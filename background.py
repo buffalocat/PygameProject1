@@ -151,7 +151,24 @@ def clamp_rgb(x):
     return x
 
 
-CORNERS = np.array([[0, 0], [WINDOW_WIDTH, 0], [0, WINDOW_HEIGHT], [WINDOW_WIDTH, WINDOW_HEIGHT]])
+#Let's redo the SineColor class, but better, with numpy
+class OscColor:
+    """A list of colors, randomly distributed around an imput color, which oscillate in value"""
+    def __init__(self, n, color, amp):
+        self.rgb = list(color)
+        self.angle = 2*np.pi*random()
+        self.amp = amp*random()
+        self.vel = COLOR_VEL*random()/100
+
+    def update(self):
+        self.angle = (self.angle + self.vel) % (2*np.pi)
+
+    def color(self):
+        return tuple(clamp_rgb(c + self.amp*np.cos(self.angle)) for c in self.rgb)
+
+EDGE_BUFF = 50
+CORNERS = np.array([[-EDGE_BUFF, -EDGE_BUFF], [WINDOW_WIDTH + EDGE_BUFF, WINDOW_HEIGHT + EDGE_BUFF],
+                    [WINDOW_WIDTH + EDGE_BUFF, -EDGE_BUFF], [-EDGE_BUFF, WINDOW_HEIGHT + EDGE_BUFF]])
 
 
 class BGCrystal(Background):
@@ -159,7 +176,10 @@ class BGCrystal(Background):
         self.w = w
         self.h = h
         self.color = color
-        self.points = np.concatenate((point_cluster(250, (400, 300),500), CORNERS))
+        #self.points = np.concatenate((point_cluster_disk(300, (400, 300), 500), CORNERS)) \
+        self.points = np.concatenate((point_cluster_rect(500, -EDGE_BUFF, -EDGE_BUFF,
+                                                         WINDOW_WIDTH + 2*EDGE_BUFF,
+                                                         WINDOW_HEIGHT + 2*EDGE_BUFF), CORNERS))
         self.tri = Delaunay(self.points).simplices
         self.colors = [SineColor(color, COLOR_SHIFT) for t in self.tri]
 
@@ -175,11 +195,17 @@ class BGCrystal(Background):
             pygame.draw.polygon(surf, self.colors[i].color(), [self.points[j] for j in self.tri[i]], 0)
 
 
-def point_cluster(n, center, radius):
-     angle_r = np.random.rand(n) * (2 * np.pi)
-     radius_r = (np.random.rand(n) ** 0.5) * radius
-     points = np.zeros((n, 2))
-     points[:] = np.array(center)
-     points[:, 0] += np.cos(angle_r) * radius_r
-     points[:, 1] += np.sin(angle_r) * radius_r
-     return points.astype(int)
+def point_cluster_rect(n, x, y, w, h):
+    points = np.random.rand(n, 2)
+    points[:, 0] = points[:, 0] * w + x
+    points[:, 1] = points[:, 1] * h + y
+    return points.astype(int)
+
+def point_cluster_disk(n, center, radius):
+    angle_r = np.random.rand(n) * (2 * np.pi)
+    radius_r = (np.random.rand(n) ** .5) * radius
+    points = np.zeros((n, 2))
+    points[:] = np.array(center)
+    points[:, 0] += np.cos(angle_r) * radius_r
+    points[:, 1] += np.sin(angle_r) * radius_r
+    return points.astype(int)
