@@ -24,11 +24,14 @@ LINE_WIDTH = 1
 
 DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
 
+# Later we'll want a more robust method for storing level data...
+
 class Tile(IntEnum):
     EMPTY = 0
     WALL = 1
     BOX = 2
     PLAYER = 3
+
 
 
 VERBOSE = False
@@ -126,7 +129,7 @@ class GSSokoban(GameState):
         self.text.font = FONT_MEDIUM
         self.text.height = 40
         self.text.add_line("Press S to Save and L to Load")
-        self.text.add_line("Use Z, X, C to change block")
+        self.text.add_line("ZXC change block type")
         self.text.add_line("Left/Right click to Create/Destroy")
 
     def room_load_default(self):
@@ -156,7 +159,8 @@ class GSSokoban(GameState):
                     tile.draw(self.surf, self.real_pos(x, y))
 
     def move_player(self, pos):
-        self.room[self.player.pos] = None
+        if self.player is not None:
+            self.room[self.player.pos] = None
         self.player = Player(pos)
         self.room[pos] = self.player
 
@@ -189,6 +193,7 @@ class GSSokoban(GameState):
                 self.w = int(room_size[0])
                 self.h = int(room_size[1])
                 self.room = {}
+                self.player = None
                 x, y = 0, 0
                 tile_data = file.read(self.w * self.h)
                 for byte in tile_data:

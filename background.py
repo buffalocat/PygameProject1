@@ -177,7 +177,7 @@ class BGCrystal(Background):
         self.h = h
         self.color = color
         #self.points = np.concatenate((point_cluster_disk(300, (400, 300), 500), CORNERS)) \
-        self.points = np.concatenate((point_cluster_rect(500, -EDGE_BUFF, -EDGE_BUFF,
+        self.points = np.concatenate((point_cluster_rect(100, -EDGE_BUFF, -EDGE_BUFF,
                                                          WINDOW_WIDTH + 2*EDGE_BUFF,
                                                          WINDOW_HEIGHT + 2*EDGE_BUFF), CORNERS))
         self.tri = Delaunay(self.points).simplices

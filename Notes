@@ -1,10 +1,23 @@
-TO DO:
-- Implement certain GUI elements from scratch
-  (or figure out how to regain focus automatically from tkinter)
-- Make the online communication protocol neater and safer
+TO DO
+
+Sokoban:
+- Make a better level editor using tkinter
+- Implement more mechanics
+- Use a "camera" to display rooms larger than the screen
+- Make the level encoding less janky
+- Make a (sample version of a) "campaign" with a series of levels
+
+Go:
+- Complete the implementation of Go with passing, scoring, and a ko rule (maybe)
+- Actually make it work online (not a Go problem)
 - Determine what can be abstracted into the Game class
   (this may not become clear until we've implemented a few different games)
+
+Online Multiplayer:
+- Try again with IPv6 (currently trying to implement this)
+- Make the online communication protocol neater and safer
 - Unify local and online implementations of multiplayer games
-  (the single player Go code is still there, but it's duplicated)
-- Complete the implementation of Go with passing, scoring, and a ko rule (maybe)
+  (as it is, the code for Go is duplicated)
+
+Other:
 - Make things prettier

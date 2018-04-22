@@ -8,13 +8,10 @@ from gs.start_menu import GSStartMenu
 # Still need to make a game state for the actual game !!!
 
 class StateManager:
-    def __init__(self):
+    def __init__(self, root):
         self.state = None
         self.pause_timer = 0
-
-        # Now we can access the tkinter root window from any state
-        self.root = tk.Tk()
-        self.root.withdraw()
+        self.root = root
 
         GSStartMenu(self)
 
