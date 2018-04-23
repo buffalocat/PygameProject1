@@ -33,6 +33,7 @@ class Tile(IntEnum):
     BOX = 2
     PLAYER = 3
     STICKY = 4
+    PURPLE = 5
 
 ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
@@ -42,7 +43,7 @@ VERBOSE = False
 class GSSokoban(GameState):
     def __init__(self, mgr, parent):
         super().__init__(mgr, parent)
-        self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, PURPLE))
+        self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
         # The background of the room is distinct from that of the window
         self.bg = WHITE
         self.create_mode = Wall
@@ -182,7 +183,7 @@ class GSSokoban(GameState):
         self.text.font = FONT_MEDIUM
         self.text.height = 40
         self.text.add_line("Press S to Save and L to Load")
-        self.text.add_line("ZXCV change block type")
+        self.text.add_line("ZXCVB change block type")
         self.text.add_line("Left/Right click to Create/Destroy")
 
     def room_load_default(self):
@@ -258,6 +259,8 @@ class GSSokoban(GameState):
                         self.create((x, y), type=Box)
                     elif code == Tile.STICKY:
                         self.create((x, y), type=StickyBox)
+                    elif code == Tile.PURPLE:
+                        self.create((x, y), type=PurpleBox)
                     elif code == Tile.PLAYER:
                         self.move_player((x,y))
                     x += 1
@@ -359,4 +362,10 @@ class StickyBox(Entity):
         return "StickyBox " + super().__repr__()
 
 
-CREATE = {K_z: Wall, K_x: Box, K_c: Player, K_v: StickyBox}
+class PurpleBox(StickyBox):
+    def __init__(self, pos):
+        super().__init__(pos, color=PURPLE)
+        self.type = Tile.PURPLE
+
+
+CREATE = {K_z: Wall, K_x: Box, K_c: Player, K_v: StickyBox, K_b: PurpleBox}
