@@ -1,4 +1,5 @@
 import os
+from queue import Queue
 from tkinter import filedialog
 
 import pygame
@@ -31,8 +32,9 @@ class Tile(IntEnum):
     WALL = 1
     BOX = 2
     PLAYER = 3
+    STICKY = 4
 
-
+ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
 VERBOSE = False
 
@@ -59,7 +61,7 @@ class GSSokoban(GameState):
         for event in pygame.event.get(KEYDOWN):
             if event.type == KEYDOWN:
                 if event.key in DIR.keys():
-                    if self.try_move(DIR[event.key], self.player, None):
+                    if self.try_move(DIR[event.key], self.player):
                         self.room[self.player.pos] = self.player
                     break
                 elif event.key in CREATE.keys():
@@ -76,10 +78,37 @@ class GSSokoban(GameState):
                     if self.create_mode == Player:
                         self.move_player(pos)
                     elif pos != self.player.pos:
-                        self.room[pos] = self.create_mode(pos)
+                        self.create(pos)
                 elif event.button == MB_RIGHT:
                     if pos != self.player.pos:
-                        self.room[pos] = None
+                        self.destroy(pos)
+
+    def create(self, pos, type=None):
+        if self.room[pos] is not None:
+            return False
+        if type is None:
+            obj = self.create_mode(pos)
+        else:
+            obj = type(pos)
+        self.room[pos] = obj
+        if obj.sticky:
+            self.update_group(obj)
+        if VERBOSE:
+            self.print_objs()
+        return True
+
+    def destroy(self, pos):
+        obj = self.room[pos]
+        self.room[pos] = None
+        # Reevaluate stickiness relations now that obj is "gone"
+        if obj is not None and obj.sticky:
+            group = obj.root.group - {obj}
+            # Ensure everyone has a clean slate before rebuilding
+            for child in group:
+                child.root = child
+                child.group = frozenset([child])
+            for child in group:
+                self.update_group(child)
 
     def in_bounds(self, pos):
         return 0 <= pos[0] < self.w and 0 <= pos[1] < self.h
@@ -87,41 +116,65 @@ class GSSokoban(GameState):
     def create_wall_border(self):
         for y in [-1, self.h]:
             for x in range(self.w):
-                self.room[(x,y)] = Wall((x,y))
+                self.room[(x, y)] = Wall((x, y))
         for x in [-1, self.w]:
             for y in range(self.h):
-                self.room[(x,y)] = Wall((x,y))
+                self.room[(x, y)] = Wall((x, y))
 
     def set_sample(self):
         # An "object" at a fake position, not recorded on the grid
         self.sample = self.create_mode((-1, -1))
 
-    def try_move(self, dpos, entity, replace):
-        if VERBOSE: print(f"TRYING TO MOVE {entity}")
-        if not entity.pushable:
-            if VERBOSE: print("Hit something not pushable")
-            return False
-        x, y = entity.pos
+    def try_move(self, dpos, entity):
+        # The set of all groups influenced by the motion
+        seen = {entity.root}
+        to_check = [entity.root]
+        can_move = True
         dx, dy = dpos
-        new_pos = (x+dx, y+dy)
-        if self.room[new_pos] is None:
-            # If this space is empty, move us and the replacing object
-            if VERBOSE: print("GOT TO AN EMPTY SPACE")
-            self.room[new_pos] = entity
-            entity.pos = new_pos
-            if replace is not None:
-                replace.pos = (x,y)
-            self.room[(x,y)] = replace
-            return True
-        if self.try_move(dpos, self.room[new_pos], entity):
-            # If the thing that was in the way can move, then the
-            # replacement can move too
-            if VERBOSE: print("Recursive pushing!")
-            if replace is not None:
-                replace.pos = (x,y)
-            self.room[(x,y)] = replace
-            return True
-        return False
+        while can_move and to_check:
+            # Grab the next group to check
+            for cur in to_check.pop().group:
+                x, y = cur.pos
+                # adj is the tile that cur is trying to move into
+                adj = self.room[(x+dx, y+dy)]
+                if adj is None:
+                    continue
+                # Tell the adjacent object that something is
+                # trying to move into it
+                adj.replace_with_none = False
+                if adj.root in seen:
+                    continue
+                elif adj.pushable:
+                    seen.add(adj.root)
+                    to_check.append(adj.root)
+                else:
+                    # We're trying to push something we can't push
+                    can_move = False
+                    break
+        if can_move:
+            for tile in seen:
+                for obj in list(tile.group):
+                    x, y = obj.pos
+                    if obj.replace_with_none:
+                        self.room[obj.pos] = None
+                    obj.pos = (x+dx, y+dy)
+                    self.room[obj.pos] = obj
+                    if obj.sticky:
+                        self.update_group(obj)
+        # In any case, reset the "replace" flags
+        for tile in seen:
+            for obj in tile.group:
+                obj.replace_with_none = True
+        if VERBOSE:
+            self.print_objs()
+        return can_move
+
+    def update_group(self, obj):
+        x, y = obj.pos
+        for dx, dy in ADJ:
+            adj = self.room[(x+dx, y+dy)]
+            if adj is not None and adj.sticky and obj.color == adj.color and obj.root is not adj.root:
+                obj.merge_group(adj)
 
     def create_text(self):
         self.text = TextLines()
@@ -129,7 +182,7 @@ class GSSokoban(GameState):
         self.text.font = FONT_MEDIUM
         self.text.height = 40
         self.text.add_line("Press S to Save and L to Load")
-        self.text.add_line("ZXC change block type")
+        self.text.add_line("ZXCV change block type")
         self.text.add_line("Left/Right click to Create/Destroy")
 
     def room_load_default(self):
@@ -177,7 +230,7 @@ class GSSokoban(GameState):
                 for y in range(self.h):
                     for x in range(self.w):
                         tile = self.room[(x,y)]
-                        code = 0 if tile is None else tile.id
+                        code = 0 if tile is None else tile.type
                         tile_data.append(code)
                 file.write(bytes(tile_data))
         except IOError:
@@ -192,19 +245,19 @@ class GSSokoban(GameState):
                 room_size = file.read(2)
                 self.w = int(room_size[0])
                 self.h = int(room_size[1])
-                self.room = {}
+                self.room = {(x,y): None for x in range(self.w) for y in range(self.h)}
                 self.player = None
                 x, y = 0, 0
                 tile_data = file.read(self.w * self.h)
                 for byte in tile_data:
                     code = int(byte)
                     # We're gonna do this the dumbest way possible, for now
-                    if code == Tile.EMPTY:
-                        self.room[(x,y)] = None
-                    elif code == Tile.WALL:
-                        self.room[(x,y)] = Wall((x,y))
+                    if code == Tile.WALL:
+                        self.create((x, y), type=Wall)
                     elif code == Tile.BOX:
-                        self.room[(x,y)] = Box((x,y))
+                        self.create((x, y), type=Box)
+                    elif code == Tile.STICKY:
+                        self.create((x, y), type=StickyBox)
                     elif code == Tile.PLAYER:
                         self.move_player((x,y))
                     x += 1
@@ -215,16 +268,45 @@ class GSSokoban(GameState):
         except IOError:
             print("Failed to read file")
 
+    def print_objs(self):
+        for x in range(self.w):
+            for y in range(self.h):
+                o = self.room[(x, y)]
+                if o is not None:
+                    print(f"{o} with root {o.root}, in {o.group}")
+        print("")
+
 
 class Entity:
+    ID_COUNT = 0
+
     def __init__(self, pos):
         self.pos = pos
         self.pushable = False
-        self.sticky = False
         self.color = None
+        self.type = None
+
+        self.sticky = False
+        self.root = self
+        self.group = frozenset([self])
+
+        self.id = Entity.ID_COUNT
+        Entity.ID_COUNT += 1
+
+        # Just for keeping track of what happens when moving
+        self.replace_with_none = True
+
+    def merge_group(self, obj):
+        self.root.group |= obj.root.group
+        for child in obj.root.group:
+            child.root = self.root
+            child.group = None
 
     def draw(self, surf, pos):
         pygame.draw.rect(surf, self.color, Rect(pos, (MESH, MESH)))
+
+    def __repr__(self):
+        return f"{self.id} at {self.pos}"
 
 
 class Player(Entity):
@@ -232,19 +314,25 @@ class Player(Entity):
         super().__init__(pos)
         self.pushable = True
         self.color = RED
-        self.id = Tile.PLAYER
+        self.type = Tile.PLAYER
 
     def draw(self, surf, pos):
         super().draw(surf, pos)
         center = (pos[0] + MESH//2, pos[1] + MESH//2)
         pygame.draw.circle(surf, BLACK, center, MESH//4, 0)
 
+    def __repr__(self):
+        return "Player " + super().__repr__()
+
 
 class Wall(Entity):
     def __init__(self, pos):
         super().__init__(pos)
         self.color = BLACK
-        self.id = Tile.WALL
+        self.type = Tile.WALL
+
+    def __repr__(self):
+        return "Wall " + super().__repr__()
 
 
 class Box(Entity):
@@ -252,7 +340,23 @@ class Box(Entity):
         super().__init__(pos)
         self.pushable = True
         self.color = GREEN
-        self.id = Tile.BOX
+        self.type = Tile.BOX
+
+    def __repr__(self):
+        return "Box " + super().__repr__()
 
 
-CREATE = {K_z: Wall, K_x: Box, K_c: Player}
+class StickyBox(Entity):
+    def __init__(self, pos, color=BLUE):
+        super().__init__(pos)
+        self.pushable = True
+        self.grouped = True
+        self.color = color
+        self.sticky = True
+        self.type = Tile.STICKY
+
+    def __repr__(self):
+        return "StickyBox " + super().__repr__()
+
+
+CREATE = {K_z: Wall, K_x: Box, K_c: Player, K_v: StickyBox}

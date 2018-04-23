@@ -1,18 +1,16 @@
 import sys
-import tkinter as tk
 
 import pygame
 
 from game_constants import *
 from gs.start_menu import GSStartMenu
-# Still need to make a game state for the actual game !!!
 
 class StateManager:
     def __init__(self, root):
         self.state = None
         self.pause_timer = 0
         self.root = root
-
+        # This may change eventually, but most games start on a menu
         GSStartMenu(self)
 
     def update(self):
@@ -43,4 +41,5 @@ class StateManager:
         # on the stack is called
         self.state.top_state()
         pygame.quit()
+        self.root.destroy()
         sys.exit()

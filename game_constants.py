@@ -6,6 +6,7 @@ DEBUG = True
 
 # System Constants
 FPS = 60
+FRAME_TIME = 1000.0 / FPS
 
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
