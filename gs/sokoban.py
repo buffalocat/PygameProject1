@@ -13,8 +13,6 @@ from game_constants import *
 from game_state import GameState
 from widget import TextLines
 
-MAIN_DIR = os.getcwd()
-
 PADDING = 20
 ROOM_WIDTH = 20
 ROOM_HEIGHT = 15
@@ -208,7 +206,7 @@ class GSSokoban(GameState):
         self.objmap[pos].append(self.player)
 
     def save(self):
-        filename = filedialog.asksaveasfilename(initialdir=MAIN_DIR, filetypes=["map .map"])
+        filename = filedialog.asksaveasfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None or filename == "":
             return
         if filename[-4:] != ".map":
@@ -254,7 +252,7 @@ class GSSokoban(GameState):
             print("Failed to write to file")
 
     def load(self):
-        filename = filedialog.askopenfilename(initialdir=MAIN_DIR, filetypes=["map .map"])
+        filename = filedialog.askopenfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None:
             return
         try:

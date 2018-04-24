@@ -1,3 +1,5 @@
+import os
+
 from pygame.constants import *
 import numpy as np
 
@@ -10,6 +12,9 @@ FRAME_TIME = 1000.0 / FPS
 
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
+
+MAIN_DIR = os.getcwd()
+MAPS_DIR = os.path.join(MAIN_DIR, "maps")
 
 # I/O
 FILE_CHUNK_SIZE = 4096
