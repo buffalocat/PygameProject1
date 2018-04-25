@@ -10,6 +10,7 @@ from gs.color_select import GSColorSelect
 from gs.connection_setup import GSConnectionSetup
 from gs.go import GSGo
 from gs.sokoban import GSSokoban
+from gs.sokoban_editor import GSSokobanEditor
 from widget import Menu
 
 
@@ -19,11 +20,14 @@ class GSStartMenu(GameState):
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, (30,150,80)))
         self.root.add(StartMenu(self, (10, 10)))
 
-    def play_go(self):
-        GSGo(self.mgr, self)
+    def edit_sokoban(self):
+        GSSokobanEditor(self.mgr, self)
 
     def play_sokoban(self):
         GSSokoban(self.mgr, self)
+
+    def play_go(self):
+        GSGo(self.mgr, self)
 
     def connection_setup(self):
         GSConnectionSetup(self.mgr, self)
@@ -39,8 +43,9 @@ class GSStartMenu(GameState):
 class StartMenu(Menu):
     def __init__(self, parent, pos):
         super().__init__(parent, pos)
+        self.add_item("Sokoban Editor", "edit_sokoban")
+        self.add_item("Play Sokoban Level", "play_sokoban")
         self.add_item("Play Go (Local)", "play_go")
-        self.add_item("Play Sokoban", "play_sokoban")
         self.add_item("Quit", "mgr.terminate")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD

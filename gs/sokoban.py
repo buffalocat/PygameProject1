@@ -1,5 +1,3 @@
-import os
-from queue import Queue
 from tkinter import filedialog
 
 import pygame
@@ -8,10 +6,9 @@ from enum import IntEnum, Enum
 from pygame.rect import Rect
 
 from background import BGCrystal
-from font import FONT_SMALL, FONT_MEDIUM
 from game_constants import *
 from game_state import GameState
-from widget import TextLines
+
 
 PADDING = 20
 ROOM_WIDTH = 20
@@ -25,9 +22,10 @@ DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
 
 ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
-DEBUG_GROUPS = False
-
 # We can probably do something very "clever" here to avoid retyping words...
+
+ATTR = ["pushable", "sticky"]
+
 class Attr(Enum):
     solid = b"solid"
     pushable = b"pushable"
@@ -43,17 +41,11 @@ class GSSokoban(GameState):
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
         # The background of the room is distinct from that of the window
         self.bg = WHITE
-        self.create_mode = Wall
-        self.set_sample()
         self.load()
-        self.create_text()
 
     def draw(self):
         super().draw()
         self.draw_room()
-        # Show what item we can create
-        self.sample.draw(self.surf, (PADDING, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
-        self.text.draw(self.surf, (2 * PADDING + MESH, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
 
     def handle_input(self):
         for event in pygame.event.get(KEYDOWN):
@@ -61,46 +53,6 @@ class GSSokoban(GameState):
                 if event.key in DIR.keys():
                     if self.try_move(DIR[event.key], self.player):
                         break
-                elif event.key in CREATE.keys():
-                    self.create_mode = CREATE[event.key]
-                    self.set_sample()
-                elif event.key == K_s:
-                    self.save()
-                elif event.key == K_l:
-                    self.load()
-        for event in pygame.event.get(MOUSEBUTTONDOWN):
-            pos = self.grid_pos(*pygame.mouse.get_pos())
-            if self.in_bounds(pos):
-                if event.button == MB_LEFT:
-                    if self.create_mode == Player:
-                        self.move_player(pos)
-                    elif pos != self.player.pos:
-                        self.create(pos)
-                elif event.button == MB_RIGHT:
-                    if pos != self.player.pos:
-                        self.destroy(pos)
-
-    def create(self, pos):
-        obj = self.create_mode(pos)
-        if obj.solid and self.get_solid(pos) is not None:
-            return False
-        self.put_obj(obj, pos)
-        if obj.sticky:
-            self.update_group(obj)
-        return True
-
-    def destroy(self, pos):
-        obj = self.get_solid(pos)
-        self.objmap[pos] = []
-        # Reevaluate stickiness relations now that obj is "gone"
-        if obj is not None and obj.sticky:
-            group = obj.root.group - {obj}
-            # Ensure everyone has a clean slate before rebuilding
-            for child in group:
-                child.root = child
-                child.group = frozenset([child])
-            for child in group:
-                self.update_group(child)
 
     def in_bounds(self, pos):
         return 0 <= pos[0] < self.w and 0 <= pos[1] < self.h
@@ -112,10 +64,6 @@ class GSSokoban(GameState):
         for x in [-1, self.w]:
             for y in range(self.h):
                 self.objmap[(x, y)] = [Wall((x, y))]
-
-    def set_sample(self):
-        # An "object" at a fake position, not recorded on the grid
-        self.sample = self.create_mode((-1, -1))
 
     def get_solid(self, pos):
         """Return the solid object at pos, if it exists"""
@@ -167,18 +115,7 @@ class GSSokoban(GameState):
         for dx, dy in ADJ:
             adj = self.get_solid((x+dx, y+dy))
             if adj is not None and adj.sticky and obj.color == adj.color and obj.root is not adj.root:
-                if DEBUG_GROUPS:
-                    print(f"Merging {obj} with {adj}")
                 obj.merge_group(adj)
-
-    def create_text(self):
-        self.text = TextLines()
-        self.text.color = BLACK
-        self.text.font = FONT_MEDIUM
-        self.text.height = 40
-        self.text.add_line("Press S to Save and L to Load")
-        self.text.add_line("ZXCVB change block type")
-        self.text.add_line("Left/Right click to Create/Destroy")
 
     @staticmethod
     def real_pos(x, y):
@@ -314,8 +251,8 @@ class Entity:
         self.pos = pos
         self.solid = True
         self.pushable = False
-        self.color = None
         self.is_player = False
+        self.color = None
 
         self.sticky = False
         self.root = self
