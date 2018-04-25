@@ -1,3 +1,5 @@
+import tkinter as tk
+
 from gs.sokoban import *
 from font import FONT_MEDIUM
 from widget import TextLines
@@ -5,6 +7,7 @@ from widget import TextLines
 class GSSokobanEditor(GSSokoban):
     def __init__(self, mgr, parent):
         super().__init__(mgr, parent)
+        self.editor = tk.Frame(mgr.root)
         self.create_mode = Wall
         self.set_sample()
         self.create_text()
