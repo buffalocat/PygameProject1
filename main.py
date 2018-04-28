@@ -12,16 +12,14 @@ def main():
     # initialize tk window for embedding pygame
     root = tk.Tk()
     embed = tk.Frame(root, width=WINDOW_WIDTH, height=WINDOW_HEIGHT)
-    embed.pack()
+    embed.pack(side=tk.LEFT)
     os.environ['SDL_WINDOWID'] = str(embed.winfo_id())
     root.update()
-
     # initialize pygame
     pygame.init()
     # These are the only events we care about handling
     pygame.event.set_allowed([KEYUP, KEYDOWN, MOUSEBUTTONDOWN, ACTIVEEVENT])
     pygame.mouse.set_visible(True)
-
     manager = StateManager(root)
 
     def game_loop():

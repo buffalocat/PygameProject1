@@ -33,6 +33,10 @@ class GameState:
 
     def quit(self):
         """Perform any necessary clean-up before leaving a state for good"""
+        self.parent.reinit()
+
+    def reinit(self):
+        """Perform any necessary steps when becoming active again"""
         pass
 
     def take_control(self):

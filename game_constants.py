@@ -15,6 +15,7 @@ WINDOW_HEIGHT = 600
 
 MAIN_DIR = os.getcwd()
 MAPS_DIR = os.path.join(MAIN_DIR, "maps")
+TEMP_MAP_FILE = os.path.join(MAPS_DIR, "__temp.map")
 
 # I/O
 FILE_CHUNK_SIZE = 4096
@@ -30,6 +31,14 @@ MOUSE_BUTTONS = [1,3]
 
 KEYS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
+# Sokoban Specific Constants
+
+PADDING = 20
+ROOM_WIDTH = 20
+ROOM_HEIGHT = 15
+# The size of a spot on the board
+MESH = 30
+
 # Colors
 DIM_FILTER = (0, 0, 0, 50)
 
@@ -37,6 +46,7 @@ RED = (200, 50, 50)
 GREEN = (50, 200, 50)
 MAROON = (50, 0, 0)
 BLACK = (0, 0, 0)
+GREY = (100, 100, 100)
 WHITE = (255, 255, 255)
 BLUE = (50, 50, 200)
 PURPLE = (200, 50, 200)
