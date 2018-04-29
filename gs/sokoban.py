@@ -1,4 +1,4 @@
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
 import pygame
 from enum import IntEnum, Enum
@@ -24,7 +24,7 @@ class GSSokoban(GameState):
         super().__init__(mgr, parent)
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
         self.bg = WHITE
-        filename = TEMP_MAP_FILE if testing else None
+        filename = TEMP_MAP_FILE if testing else DEFAULT_MAP_FILE
         if not self.load(filename=filename):
             self.previous_state()
 
@@ -56,7 +56,22 @@ class GSSokoban(GameState):
             return next((obj for obj in self.objmap[pos] if obj.solid), None)
         return None
 
+    # This method shouldn't be necessary if we keep track of the player
+    # in a more sophisticated way.  However, as long as there is only
+    # one player on the map at a time, this is fine.
+    def search_for_player(self):
+        """Find the player"""
+        for x in range(self.w):
+            for y in range(self.h):
+                if self.objmap[(x,y)][Layer.PLAYER] is not None:
+                    if self.objmap[(x,y)][Layer.PLAYER].is_player:
+                        self.player = self.objmap[(x,y)][Layer.PLAYER]
+                        return True
+        return False
+
     def try_move_player(self, dpos):
+        if self.player is None:
+            return False
         x, y = self.player.pos
         dx, dy = dpos
         new_pos = (x+dx, y+dy)
@@ -144,6 +159,10 @@ class GSSokoban(GameState):
                         obj.draw(self.surf, self.real_pos(x, y))
 
     def save(self, filename=None):
+        if self.player is None:
+            if not self.search_for_player():
+                messagebox.showinfo("Warning", "The map must have a player object")
+                return False
         if filename is None:
             filename = filedialog.asksaveasfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None or filename == "":
@@ -211,7 +230,7 @@ class GSSokoban(GameState):
                     sizes = [int.from_bytes(file.read(1), byteorder="little")
                              for _ in range(pieces)]
                     attrs = [file.read(n) for n in sizes]
-                    obj_type = OBJ_TYPE[attrs[0].decode()]
+                    obj_type = OBJ_TYPE[attrs[0].decode()]["type"]
                     args = list(map(process_data, attrs[1:]))
                     # IF NOT BIGMAP
                     n = int.from_bytes(file.read(2), byteorder="little")
@@ -228,8 +247,9 @@ class GSSokoban(GameState):
                             self.update_group(obj)
                 # IF NOT BIGMAP
                 player_pos = tuple(file.read(2))
-                self.player= self.objmap[player_pos][Layer.PLAYER]
-                self.player.riding = self.objmap[self.player.pos][Layer.SOLID]
+                self.player = self.objmap[player_pos][Layer.PLAYER]
+                if self.player is not None:
+                    self.player.riding = self.objmap[self.player.pos][Layer.SOLID]
         except IOError:
             print("Failed to read file")
             return False

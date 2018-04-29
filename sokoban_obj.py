@@ -6,7 +6,7 @@ from game_constants import *
 
 # Rendering Constants
 RIDE_CIRCLE_THICKNESS = 2
-STICKY_OUTLINE_THICKNESS = 5
+STICKY_OUTLINE_THICKNESS = 2
 
 
 # A tile can have one of each type of object
@@ -45,6 +45,9 @@ class GameObj:
         self.mimic = mimic
         self.rideable = rideable
 
+        # This one is a little specific, but useful
+        self.is_player = False
+
         # These may only be useful for pushable objects
         self.root = self
         self.group = frozenset([self])
@@ -66,9 +69,9 @@ class GameObj:
             pygame.draw.circle(surf, BLACK, center,
                                MESH // 4 + RIDE_CIRCLE_THICKNESS//2,
                                RIDE_CIRCLE_THICKNESS)
-        """if self.sticky:
+        if self.sticky:
             pygame.draw.rect(surf, GREY, Rect(pos, (MESH, MESH)),
-                             STICKY_OUTLINE_THICKNESS)"""
+                             STICKY_OUTLINE_THICKNESS)
 
 
 class Wall(GameObj):
@@ -109,6 +112,7 @@ class Player(GameObj):
     def __init__(self, pos):
         super().__init__(pos, Layer.PLAYER, color=GREY)
         self.riding = None
+        self.is_player = True
 
     def draw(self, surf, pos):
         center = (pos[0] + MESH // 2, pos[1] + MESH // 2)
@@ -119,8 +123,17 @@ class Player(GameObj):
         sizes = bytes([len(attrs)] + [len(x) for x in attrs])
         return sizes + b"".join(attrs)
 
+OBJ_TYPE = {"Wall":
+                {"type": Wall, "args": []},
+            "Box":
+                {"type": Box, "args": [("Color", "color"), ("Sticky", "bool")]},
+            "Car":
+                {"type": Car, "args": [("Color", "color"), ("Sticky", "bool")]},
+            "Player":
+                {"type": Player, "args": []}}
 
-OBJ_TYPE = {"Wall": Wall,
-            "Box": Box,
-            "Car": Car,
-            "Player": Player}
+OBJ_COLORS = {"Red": RED,
+              "Blue": BLUE,
+              "Green": GREEN,
+              "Purple": PURPLE,
+              "Gold": GOLD}
