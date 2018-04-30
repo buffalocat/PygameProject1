@@ -24,7 +24,7 @@ class GSStartMenu(GameState):
         GSSokobanEditor(self.mgr, self)
 
     def play_sokoban(self):
-        GSSokoban(self.mgr, self)
+        GSSokoban(self.mgr, self, pick_level=True)
 
     def play_go(self):
         GSGo(self.mgr, self)

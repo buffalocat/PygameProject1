@@ -27,8 +27,9 @@ SOCKET_BUFFER_SIZE = 256
 
 # Some input related constants
 MB_LEFT = 1
+MB_MIDDLE = 2
 MB_RIGHT = 3
-MOUSE_BUTTONS = [1,3]
+MOUSE_BUTTONS = [1,2,3]
 
 KEYS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
@@ -48,6 +49,7 @@ GREEN = (50, 200, 50)
 MAROON = (50, 0, 0)
 BLACK = (0, 0, 0)
 GREY = (100, 100, 100)
+LIGHT_GREY = (200, 200, 200)
 WHITE = (255, 255, 255)
 BLUE = (50, 50, 200)
 PURPLE = (200, 50, 200)

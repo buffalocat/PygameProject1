@@ -1,11 +1,11 @@
 TO DO
 
 Sokoban:
-- Make a better level editor using tkinter
 - Implement more mechanics
 - Use a "camera" to display rooms larger than the screen
-- Make the level encoding less janky
 - Make a (sample version of a) "campaign" with a series of levels
+- Implement box selection and dragging in editor
+- Make Rooms and Doors (NOTE: the player's starting position is really structural, not positional)
 
 Go:
 - Complete the implementation of Go with passing, scoring, and a ko rule (maybe)

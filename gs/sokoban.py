@@ -9,6 +9,7 @@ from background import BGCrystal
 from game_constants import *
 from game_state import GameState
 from sokoban_obj import *
+from sokoban_str import *
 
 DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
 
@@ -20,13 +21,20 @@ ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 # The value is the object at that position on that layer, or None
 
 class GSSokoban(GameState):
-    def __init__(self, mgr, parent, testing=False):
+    def __init__(self, mgr, parent, pick_level=False, testing=False):
         super().__init__(mgr, parent)
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
         self.bg = WHITE
-        filename = TEMP_MAP_FILE if testing else DEFAULT_MAP_FILE
+        if pick_level:
+            filename = None
+        else:
+            filename = TEMP_MAP_FILE if testing else DEFAULT_MAP_FILE
         if not self.load(filename=filename):
             self.previous_state()
+
+    def update_dynamic(self):
+        for obj in self.dynamic:
+            obj.update()
 
     def draw(self):
         super().draw()
@@ -45,10 +53,10 @@ class GSSokoban(GameState):
     def create_wall_border(self):
         for y in [-1, self.h]:
             for x in range(self.w):
-                self.objmap[(x, y)][Layer.SOLID] = Wall((x,y))
+                self.objmap[(x, y)][Layer.SOLID] = Wall(self.objmap, (x,y))
         for x in [-1, self.w]:
             for y in range(self.h):
-                self.objmap[(x, y)][Layer.SOLID] = Wall((x,y))
+                self.objmap[(x, y)][Layer.SOLID] = Wall(self.objmap, (x,y))
 
     def get_solid(self, pos):
         """Return the solid object at pos, if it exists"""
@@ -113,10 +121,11 @@ class GSSokoban(GameState):
                     can_move = False
                     break
         if can_move:
-            # Three steps:
+            # Four steps:
             # 1: Remove objects from their old map positions
             # 2: Put them in current positions, update pos
             # 3: Update other data (like groups)
+            # 4: Alert all dynamic objects
             for tile in seen:
                 for obj in list(tile.group):
                     self.objmap[obj.pos][Layer.SOLID] = None
@@ -129,6 +138,7 @@ class GSSokoban(GameState):
                 for obj in list(tile.group):
                     if obj.sticky:
                         self.update_group(obj)
+            self.update_dynamic()
         return can_move
 
     def update_group(self, obj):
@@ -199,15 +209,18 @@ class GSSokoban(GameState):
                     file.write(bytes(pos_list))
                 # Signals the end of the Placement Data
                 file.write(bytes([0]))
-                # Begin Behavior Data
-                # Currently the only thing is the player position
+                # Write the player's default position
                 file.write(bytes(self.player.pos))
+                # Begin Structural Data
+                for s in self.structures:
+                    file.write(bytes(s))
+
         except IOError:
             print("Failed to write to file")
             return False
         return True
 
-    def load(self, filename=None):
+    def load(self, filename=None, start_pos=None):
         if filename is None:
             filename = filedialog.askopenfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None:
@@ -220,15 +233,16 @@ class GSSokoban(GameState):
                 self.h = int(room_size[1])
                 self.init_map()
                 self.player = None
+                self.dynamic = []
+                self.structures = []
                 x, y = 0, 0
                 self.create_wall_border()
                 # First load in the positional data
                 while True:
-                    pieces = int.from_bytes(file.read(1), byteorder="little")
+                    pieces = file.read(1)[0]
                     if pieces == 0:
                         break
-                    sizes = [int.from_bytes(file.read(1), byteorder="little")
-                             for _ in range(pieces)]
+                    sizes = [file.read(1)[0] for _ in range(pieces)]
                     attrs = [file.read(n) for n in sizes]
                     obj_type = OBJ_TYPE[attrs[0].decode()]["type"]
                     args = list(map(process_data, attrs[1:]))
@@ -237,19 +251,50 @@ class GSSokoban(GameState):
                     pos_str = file.read(2*n)
                     # IF NOT BIGMAP
                     for i in range(n):
-                        pos = tuple(map(int, pos_str[2*i:2*i + 2]))
-                        obj = obj_type(pos, *args)
+                        pos = tuple(map(int, pos_str[2*i : 2*i + 2]))
+                        obj = obj_type(self.objmap, pos, *args)
                         self.objmap[pos][obj.layer] = obj
+                        if obj.dynamic:
+                            self.dynamic.append(obj)
                 # Some state behavior is determined by map position
                 for pos in self.objmap:
                     for obj in self.objmap[pos]:
                         if obj is not None and obj.sticky:
                             self.update_group(obj)
-                # IF NOT BIGMAP
-                player_pos = tuple(file.read(2))
-                self.player = self.objmap[player_pos][Layer.PLAYER]
-                if self.player is not None:
-                    self.player.riding = self.objmap[self.player.pos][Layer.SOLID]
+                # Get the default player position
+                if start_pos is None:
+                    player_pos = tuple(file.read(2))
+                    self.player = self.objmap[player_pos][Layer.PLAYER]
+                    if self.player is not None:
+                        car = self.objmap[self.player.pos][Layer.SOLID]
+                        if car.rideable:
+                            self.player.riding = car
+                else:
+                    # Later, we should be able to carry player_pos info from previous room
+                    pass
+                # Load in the structural data of the map
+                while True:
+                    bytes = int.from_bytes(file.read(2), byteorder="little")
+                    if bytes == 0:
+                        # Either put in a b"\x00\x00" to signal the end
+                        # or just let it reach the end of the file
+                        break
+                    str = StrType(file.read(1)[0])
+                    data = file.read(bytes)
+                    if str == StrType.SWITCH_LINK:
+                        switch = None
+                        gates = []
+                        # IF NOT BIGMAP
+                        for i in range(len(data)//3):
+                            pos = tuple(data[3*i:3*i+2])
+                            layer = data[3*i+2]
+                            if i == 0:
+                                switch = self.objmap[pos][layer]
+                            else:
+                                gates.append(self.objmap[pos][layer])
+                        self.structures.append(SwitchLink(switch, gates))
+            for s in self.structures:
+                s.activate()
         except IOError:
             print("Failed to read file")
             return False
@@ -261,6 +306,7 @@ class GSSokoban(GameState):
                        for y in range(-1, self.h + 1)}
 
 # Turn a bytestring back into data, according to some simple rules
+# Note we'll never store the integer 0 (need to be clever, use enums, etc)
 def process_data(s):
     if s == b"":
         return False
@@ -270,7 +316,7 @@ def process_data(s):
         # This is a color
         return tuple(s)
     elif len(s) <= 2:
-        # This could be a Layer, or some other number
+        # This is an int, possibly an intenum
         return int.from_bytes(s, byteorder="little")
     else:
         # If it's 4 bytes or longer, we'll assume it's a string
