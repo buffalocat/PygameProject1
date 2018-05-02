@@ -185,7 +185,7 @@ class GSSokobanEditor(GSSokoban):
         edit_selection_nothing = tk.Frame(edit_selection)
 
         # CREATE STRUCTURE
-        create_structure = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
+        create_structure = tk.LabelFrame(edit_selection, text="Create Structure", padx=PADX, pady=PADY)
 
         link_switch_b = tk.Button(create_structure, text="Link Switch", command=self.link_switch)
         link_switch_b.pack()
