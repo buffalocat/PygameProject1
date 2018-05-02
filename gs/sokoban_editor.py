@@ -11,32 +11,61 @@ from widget import TextLines
 
 DEFAULT_LAYER = Layer.SOLID
 
+class SelectMode(IntEnum):
+    NONE = auto()
+    STANDARD = auto()
+    SINGLE = auto()
+    STRUCTURE = auto()
+
+# SELECTION CONSTANTS
+SELECT_COLOR = {SelectMode.STANDARD: HOT_PINK,
+                SelectMode.SINGLE: BRIGHT_ORANGE,
+                SelectMode.STRUCTURE: NEON_GREEN}
+
+SELECT_THICKNESS = 3
+
+# GUI CONSTANTS
+PADX = 5
+PADY = 5
+
 VERBOSE = True
 
 class GSSokobanEditor(GSSokoban):
     def __init__(self, mgr, parent):
         self.editor = tk.Frame(mgr.root)
-        self.selected = set()
+        super().__init__(mgr, parent, testing=False)
         self.init_attrs()
         self.init_editor_frame()
-        super().__init__(mgr, parent, testing=False)
+        self.reinit()
         self.create_text()
-
-    def reinit(self):
-        self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
 
     def init_attrs(self):
         """Initialize attributes so we know they exist"""
         self.edit_layer = None
         self.create_args = None
 
-    def init_editor_frame(self):
-        self.reinit()
+    def reinit(self):
+        """Initialization which occurs whenever a map is loaded"""
+        self.select_mode.set(SelectMode.NONE)
+        self.selected = []
+        self.cur_object = None
+        # Note: we have to be careful not to accidentally modify this!
+        # But it's also convenient to not do a deep copy
+        # This is the list of structures which contain all objects in selected
+        self.structure_select = self.structures
+        # This is the currently selected structure
+        self.cur_structure = None
+        self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
+        self.reset_selection()
 
+
+    def init_editor_frame(self):
+        # Use this to initialize frame variables
+        dummy_frame = tk.Frame()
         # MAIN MENU BLOCK
-        main_menu = tk.Frame(self.editor)
+        main_menu = tk.Frame(self.editor, padx=PADX, pady=PADY)
         main_menu.pack()
-        load_b = tk.Button(main_menu, text="Load", command=self.load)
+        load_b = tk.Button(main_menu, text="Load", command=self.load_reinit)
         save_b = tk.Button(main_menu, text="Save", command=self.save)
         clear_b = tk.Button(main_menu, text="Clear", command=self.clear)
         play_b = tk.Button(main_menu, text="Play", command=self.play)
@@ -44,8 +73,16 @@ class GSSokobanEditor(GSSokoban):
         load_b.grid()
         save_b.grid(row=0, column=1)
         clear_b.grid(row=0, column=2)
-        play_b.grid()
-        quit_b.grid(row=1, column=1)
+        play_b.grid(row=0, column=3)
+        quit_b.grid(row=0, column=4)
+
+        # SET UP PACK STRUCTURE UNDER THE MENU
+        two_cols = tk.Frame(self.editor)
+        two_cols.pack(side=tk.TOP)
+        left_col = tk.Frame(two_cols)
+        left_col.grid(sticky=tk.N)
+        right_col = tk.Frame(two_cols)
+        right_col.grid(row=0, column=1, sticky=tk.N)
 
         # LAYER SELECT AND OBJECT SELECT BLOCK
         def edit_layer_callback(*args):
@@ -62,66 +99,133 @@ class GSSokobanEditor(GSSokoban):
             self.current_object_settings.pack()
             self.set_sample()
 
-        layer_select = tk.Frame(self.editor)
-        layer_select.pack()
+        layer_select = tk.LabelFrame(left_col, text="Layer Select", padx=PADX, pady=PADY)
+        layer_select.pack(fill=tk.X)
         self.edit_layer_var = tk.IntVar()
         self.edit_layer_var.trace("w", edit_layer_callback)
 
-        object_chooser = tk.Frame(self.editor)
-        object_chooser.pack(side=tk.TOP)
-        self.create_mode_var = tk.StringVar(object_chooser)
+        object_select = tk.LabelFrame(left_col, text="Object Select", padx=PADX, pady=PADY)
+        object_select.pack(side=tk.TOP, fill=tk.X)
+        # The purpose of this frame is to ensure the menu appears above the options
+        object_type_menu_frame = tk.Frame(object_select)
+        object_type_menu_frame.pack()
+        self.create_mode_var = tk.StringVar(object_select)
         self.create_mode_var.trace("w", object_type_callback)
-        self.layer_button_dict = {}
+        layer_button_dict = {}
         self.object_type_menu_dict = {}
 
         for layer in Layer:
             current = tk.Radiobutton(layer_select, text=layer.name, variable=self.edit_layer_var, value=int(layer))
-            self.layer_button_dict[layer] = current
-            self.object_type_menu_dict[layer] = tk.OptionMenu(object_chooser, self.create_mode_var, *OBJ_BY_LAYER[layer])
+            layer_button_dict[layer] = current
+            self.object_type_menu_dict[layer] = tk.OptionMenu(object_type_menu_frame, self.create_mode_var,
+                                                              *(x for x in OBJ_BY_LAYER[layer] if x not in DEPENDENT_OBJS))
             current.pack()
 
-        object_settings = tk.Frame(self.editor)
-        object_settings.pack(side=tk.TOP)
+        object_settings = tk.Frame(object_select, padx=PADX, pady=PADY)
+        object_settings.pack(side=tk.TOP, fill=tk.X)
         self.object_settings_dict = {}
         for obj_name in OBJ_TYPE:
-            current = tk.Frame(object_settings)
-            self.object_settings_dict[obj_name] = (current, [])
-            for name, type in OBJ_TYPE[obj_name]["args"]:
-                var, widget = self.make_variable_widget(current, name, type)
-                var.trace("w", self.set_sample)
-                self.object_settings_dict[obj_name][1].append(var)
-                widget.pack(side=tk.TOP)
+            if obj_name not in DEPENDENT_OBJS:
+                current = tk.Frame(object_settings)
+                self.object_settings_dict[obj_name] = (current, [])
+                for name, type in OBJ_TYPE[obj_name]["args"]:
+                    var, widget = self.make_variable_widget(current, name, type)
+                    var.trace("w", self.set_sample)
+                    self.object_settings_dict[obj_name][1].append(var)
+                    widget.pack(side=tk.TOP)
 
         # Initialize the Layer and Object select
-        dummy_frame = tk.Frame()
         self.current_object_settings = dummy_frame
         self.current_object_type_menu = dummy_frame
 
         self.edit_layer_var.set(int(DEFAULT_LAYER))
-        # Those variables no longer point to the dummy frame
-        dummy_frame.destroy()
 
-        # STRUCTURES BLOCK
-        group_operations = tk.Frame(self.editor)
-        group_operations.pack(side=tk.TOP)
+        # OBJ SELECTION
+        def on_select_object(event):
+            cur = event.widget.curselection()
+            if cur:
+                self.select_mode.set(SelectMode.SINGLE)
+                self.cur_object = self.selected[cur[0]]
 
-        link_switch_b = tk.Button(group_operations, text="Link Switch", command=self.link_switch)
+        select_frame = tk.LabelFrame(right_col, text="Selection", padx=PADX, pady=PADY)
+        select_frame.pack(side=tk.TOP, fill=tk.X)
+        select_scrollbar = tk.Scrollbar(select_frame, orient=tk.VERTICAL)
+        self.select_list = tk.Listbox(select_frame, selectmode=tk.SINGLE,
+                                      yscrollcommand=select_scrollbar.set)
+        self.select_list.bind("<<ListboxSelect>>", on_select_object)
+        select_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        select_scrollbar.config(command=self.select_list.yview)
+        self.select_list.pack()
+
+        # STRUCTURE SELECTION
+        def on_select_structure(event):
+            cur = event.widget.curselection()
+            if cur:
+                self.select_mode.set(SelectMode.STRUCTURE)
+                self.cur_structure = self.structure_select[cur[0]]
+
+        structure_select_frame = tk.LabelFrame(right_col, text="Structure Select", padx=PADX, pady=PADY)
+        structure_select_frame.pack(side=tk.TOP, fill=tk.X)
+        structure_select_scrollbar = tk.Scrollbar(structure_select_frame, orient=tk.VERTICAL)
+        self.structure_select_list = tk.Listbox(structure_select_frame, selectmode=tk.SINGLE,
+                                                yscrollcommand=structure_select_scrollbar.set)
+        self.structure_select_list.bind("<<ListboxSelect>>", on_select_structure)
+        structure_select_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        structure_select_scrollbar.config(command=self.select_list.yview)
+        self.structure_select_list.pack()
+
+        # EDIT SELECTION
+        def change_select_mode_callback(*args):
+            self.current_edit_selection.pack_forget()
+            self.current_edit_selection = edit_selection_dict[self.select_mode.get()]
+            self.current_edit_selection.pack()
+
+        edit_selection = tk.Frame(left_col)
+        edit_selection.pack(side=tk.TOP, fill=tk.X)
+        edit_selection_nothing = tk.Frame(edit_selection)
+
+        # CREATE STRUCTURE
+        create_structure = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
+
+        link_switch_b = tk.Button(create_structure, text="Link Switch", command=self.link_switch)
         link_switch_b.pack()
 
-        create_group_b = tk.Button(group_operations, text="Create Group", command=self.create_group)
+        create_group_b = tk.Button(create_structure, text="Create Group", command=self.create_group)
         create_group_b.pack()
+
+        # EDIT OBJECT
+        edit_object = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
+        DUMB_BUTTON = tk.Button(edit_object, text="8^Y")
+        DUMB_BUTTON.pack()
+
+        # EDIT STRUCTURE
+        edit_structure = tk.LabelFrame(edit_selection, text="Edit Structure", padx=PADX, pady=PADY)
+        OTHER_DUMB_BUTTON = tk.Button(edit_structure, text="Y^8")
+        OTHER_DUMB_BUTTON.pack()
+
+        # Finish putting together the EDIT SELECTION frame
+        edit_selection_dict = {SelectMode.NONE: edit_selection_nothing,
+                                    SelectMode.STANDARD: create_structure,
+                                    SelectMode.SINGLE: edit_object,
+                                    SelectMode.STRUCTURE: edit_structure}
+        self.current_edit_selection = edit_selection_nothing
+        self.select_mode = SelectModeVar()
+        self.select_mode.trace("w", change_select_mode_callback)
+
+        # Nothing actually points to the dummy frame anymore: destroy it
+        dummy_frame.destroy()
 
     def make_variable_widget(self, frame, name, type):
         var = None
         widget = None
         if type == "bool":
             var = BoolVar()
-            var.var.set(0)
+            var.set(0)
             widget = tk.Checkbutton(frame, text=name, variable=var.var)
         elif type == "color":
             var = ColorVar()
             color_list = list(OBJ_COLORS.keys())
-            var.var.set(color_list[0])
+            var.set(color_list[0])
             widget = tk.OptionMenu(frame, var.var, *color_list)
         return var, widget
 
@@ -129,6 +233,27 @@ class GSSokobanEditor(GSSokoban):
         super().draw()
         self.sample.draw(self.surf, (PADDING, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
         self.text.draw(self.surf, (2 * PADDING + MESH, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
+        self.draw_selection()
+
+    def draw_selection(self):
+        mode = self.select_mode.get()
+        if mode != SelectMode.NONE:
+            selection = []
+            if mode == SelectMode.STANDARD:
+                selection = self.selected
+            elif mode == SelectMode.SINGLE:
+                selection = [self.cur_object]
+            elif mode == SelectMode.STRUCTURE:
+                selection = self.cur_structure.get_objs()
+            color = SELECT_COLOR[mode]
+            for obj in selection:
+                x, y = self.real_pos(obj.pos)
+                if obj.layer == Layer.SOLID:
+                    pygame.draw.rect(self.surf, color, Rect(x, y, MESH, MESH), SELECT_THICKNESS)
+                elif obj.layer == Layer.FLOOR:
+                    pygame.draw.rect(self.surf, color, Rect(x+MESH//6, y+MESH//6, 2*MESH//3 + 1, 2*MESH//3 + 1), SELECT_THICKNESS)
+                elif obj.layer == Layer.PLAYER:
+                    pygame.draw.circle(self.surf, color, (x+MESH//2, y+MESH//2), MESH//3, SELECT_THICKNESS)
 
     def handle_input(self):
         for event in pygame.event.get(KEYDOWN):
@@ -156,41 +281,86 @@ class GSSokobanEditor(GSSokoban):
         if pygame.key.get_mods() & KMOD_CTRL:
             obj = self.objmap[pos][self.edit_layer]
             if obj is not None:
-                self.selected.add(obj)
-                if VERBOSE:
-                    print(f"Selected {obj}")
+                self.add_to_selection(obj)
         else:
-            if self.selected:
-                self.selected = set()
-            else:
-                self.create(pos)
+            if not self.selected:
+                if self.create(pos):
+                    self.update_dynamic()
+            self.reset_selection()
 
     def handle_right_click(self, pos):
         if pygame.key.get_mods() & KMOD_CTRL:
-            self.selected.discard(self.objmap[pos][self.edit_layer])
+            obj = self.objmap[pos][self.edit_layer]
+            if obj is not None:
+                self.remove_from_selection(obj)
         else:
-            if self.selected:
-                self.selected = set()
-            else:
-                self.destroy(pos)
+            if not self.selected:
+                if self.destroy(pos):
+                    self.update_dynamic()
+            self.reset_selection()
+
+    def add_to_selection(self, obj):
+        self.select_mode.set(SelectMode.STANDARD)
+        if obj not in self.selected:
+            # Here we know the list is only getting smaller
+            self.structure_select = [s for s in self.structure_select if obj in s.get_objs()]
+            self.reset_structure_select_list()
+            self.selected.append(obj)
+            self.select_list.insert(tk.END, obj.display_str())
+
+    def remove_from_selection(self, obj):
+        if obj in self.selected:
+            # The list could get larger
+            i = self.selected.index(obj)
+            self.selected.remove(obj)
+            self.select_list.delete(i)
+            self.structure_select = [s for s in self.structures
+                                     if all(x in s.get_objs() for x in self.selected)]
+            self.reset_structure_select_list()
+        if self.selected:
+            self.select_mode.set(SelectMode.STANDARD)
+        else:
+            self.select_mode.set(SelectMode.NONE)
+
+    def reset_selection(self):
+        self.select_mode.set(SelectMode.NONE)
+        self.selected = []
+        self.structure_select = self.structures
+        self.select_list.delete(0, tk.END)
+        self.reset_structure_select_list()
+
+    def reset_structure_select_list(self):
+        self.structure_select_list.delete(0, tk.END)
+        self.structure_select_list.insert(0, *self.structure_select)
+
+    def load_reinit(self):
+        """Load a map and reinitialize the editor"""
+        if self.load():
+            self.reinit()
 
     def clear(self):
         self.load(filename=DEFAULT_MAP_FILE)
 
     def create(self, pos):
-        obj = self.create_mode(self.objmap, pos, *(x.get() for x in self.create_args))
-        self.objmap[pos][obj.layer] = obj
-        if obj.is_player:
-            self.player = obj
-        return True
+        if self.objmap[pos][self.edit_layer] is None:
+            obj = self.create_mode(self.objmap, pos, *(x.get() for x in self.create_args))
+            self.objmap[pos][obj.layer] = obj
+            if obj.is_player:
+                self.player = obj
+            return True
+        return False
 
     def destroy(self, pos):
         obj = self.objmap[pos][self.edit_layer]
-        # Destroying an object also destroys any structures it's in
-        for x in self.structures:
-            if obj in x.get_objs():
-                self.structures.remove(x)
-        self.objmap[pos][self.edit_layer] = None
+        if obj is not None and str(obj) not in DEPENDENT_OBJS:
+            obj.destroy()
+            # Remove the object from any structures it's in
+            for s in self.structures:
+                if obj in s.get_objs():
+                    s.destroy(self.structures, obj)
+            self.objmap[pos][self.edit_layer] = None
+            return True
+        return False
 
     def edit(self, pos):
         pass
@@ -209,9 +379,8 @@ class GSSokobanEditor(GSSokoban):
                 return False
         if switch is None or len(connections) == 0:
             return False
-        self.structures.append(SwitchLink(switch, connections))
-        if VERBOSE:
-            print(f"Made a switch with {switch} and {connections}")
+        self.structures.append(SwitchLink(self.objmap, switch, connections))
+        self.reset_selection()
         return True
 
     def create_group(self):
@@ -227,6 +396,7 @@ class GSSokobanEditor(GSSokoban):
         self.text.font = FONT_MEDIUM
         self.text.height = 40
         self.text.add_line("Left/Right click to Create/Destroy")
+        self.text.add_line("Hold ctrl while clicking to Select")
 
     def destroy_editor(self):
         widgets = [self.editor]
@@ -244,7 +414,7 @@ class GSSokobanEditor(GSSokoban):
         super().quit()
         self.destroy_editor()
 
-# A wrapper of tk.StringVar to make it behave how I want
+# Wrappers of tk.Var classes to make things behave conveniently
 class ColorVar:
     def __init__(self):
         self.var = tk.StringVar()
@@ -252,8 +422,12 @@ class ColorVar:
     def get(self):
         return OBJ_COLORS[self.var.get()]
 
+    def set(self, value):
+        self.var.set(value)
+
     def trace(self, mode, callback):
         return self.var.trace(mode, callback)
+
 
 class BoolVar:
     def __init__(self):
@@ -262,8 +436,26 @@ class BoolVar:
     def get(self):
         return True if self.var.get() else False
 
+    def set(self, value):
+        self.var.set(value)
+
     def trace(self, mode, callback):
         return self.var.trace(mode, callback)
+
+
+class SelectModeVar:
+    def __init__(self):
+        self.var = tk.IntVar()
+
+    def get(self):
+        return SelectMode(self.var.get())
+
+    def set(self, value):
+        self.var.set(int(value))
+
+    def trace(self, mode, callback):
+        return self.var.trace(mode, callback)
+
 
 LAYER_HOTKEYS = {K_q: 1,
                  K_w: 2,

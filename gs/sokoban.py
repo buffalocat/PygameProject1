@@ -150,7 +150,8 @@ class GSSokoban(GameState):
                 obj.merge_group(adj)
 
     @staticmethod
-    def real_pos(x, y):
+    def real_pos(pos):
+        x, y = pos
         return x * MESH + PADDING, y * MESH + PADDING
 
     @staticmethod
@@ -163,10 +164,9 @@ class GSSokoban(GameState):
         pygame.draw.rect(self.surf, WHITE, Rect(PADDING, PADDING, MESH*ROOM_WIDTH, MESH*ROOM_HEIGHT))
         for pos in self.objmap:
             if self.in_bounds(pos):
-                x, y = pos
-                for obj in self.objmap[(x, y)]:
+                for obj in self.objmap[pos]:
                     if obj is not None:
-                        obj.draw(self.surf, self.real_pos(x, y))
+                        obj.draw(self.surf, self.real_pos(pos))
 
     def save(self, filename=None):
         if self.player is None:
@@ -188,7 +188,7 @@ class GSSokoban(GameState):
                     if not self.in_bounds(pos):
                         continue
                     for obj in self.objmap[pos]:
-                        if obj is not None:
+                        if obj is not None and str(obj) not in DEPENDENT_OBJS:
                             s = bytes(obj)
                             if s not in objdata:
                                 objdata[s] = []
@@ -292,7 +292,7 @@ class GSSokoban(GameState):
                                 switch = self.objmap[pos][layer]
                             else:
                                 gates.append(self.objmap[pos][layer])
-                        self.structures.append(SwitchLink(switch, gates))
+                        self.structures.append(SwitchLink(self.objmap, switch, gates))
             for s in self.structures:
                 s.activate()
         except IOError:

@@ -86,6 +86,16 @@ class GameObj:
                                MESH // 4 + RIDE_CIRCLE_THICKNESS//2,
                                RIDE_CIRCLE_THICKNESS)
 
+    def destroy(self):
+        pass
+
+    def check_consistency(self):
+        """Make sure the state makes sense after changing properties"""
+        pass
+
+    def display_str(self):
+        return f"{self} {self.pos}"
+
     def __str__(self):
         return self.__class__.__name__
 
@@ -133,36 +143,45 @@ class GateBase(GameObj):
         self.active = False
         # Is the Gate up by default
         self.default = default
+        # Have we been told to go up
+        self.signal = False
         # Is the Gate trying to go up, but is blocked
         self.waiting = False
         self.wall = GateWall(self.map, self.pos)
         if not self.virtual:
-            self.set_state(False)
+            self.set_signal(False)
 
-    def set_state(self, signal):
+    def set_signal(self, signal):
+        self.signal = signal
+        self.check_consistency()
+
+    def check_consistency(self):
         # Reverse the signal if the gate should be up by default
-        if self.default:
-            signal = not signal
+        signal = self.signal if not self.default else not self.signal
         # The gate doesn't want to be up; stop waiting
         if not signal:
             self.waiting = False
+            self.active = False
+            if self.map[self.pos][Layer.SOLID] is self.wall:
+                self.map[self.pos][Layer.SOLID] = None
         # Try to raise the gate
-        if not self.active and signal:
+        else:
             if self.map[self.pos][Layer.SOLID] is None:
                 self.map[self.pos][Layer.SOLID] = self.wall
                 self.active = True
                 self.waiting = False
-            else:
+            elif self.map[self.pos][Layer.SOLID] is not self.wall:
+                self.active = False
                 self.waiting = True
-        # Lower the gate
-        if self.active and not signal:
-            self.map[self.pos][Layer.SOLID] = None
-            self.active = False
 
     def update(self):
         if self.waiting:
             if self.map[self.pos][Layer.SOLID] is None:
-                self.set_state(True)
+                self.check_consistency()
+
+    def destroy(self):
+        if self.active:
+            self.map[self.pos][Layer.SOLID] = None
 
 
 # Maybe include something to ensure that GateWalls are ignored during level saving?
@@ -185,7 +204,7 @@ class Switch(GameObj):
 
     def send_signal(self):
         for gate in self.gates:
-            gate.set_state(self.pressed)
+            gate.set_signal(self.pressed)
 
     def update(self):
         if not self.pressed and self.map[self.pos][Layer.SOLID] is not None:
@@ -194,6 +213,17 @@ class Switch(GameObj):
         if not self.persistent and self.pressed and self.map[self.pos][Layer.SOLID] is None:
             self.pressed = False
             self.send_signal()
+
+    def draw(self, surf, pos):
+        x, y = pos
+        super().draw(surf, pos)
+        pygame.draw.line(surf, BLACK, (x+MESH//2, y+MESH//8), (x+MESH//2, y+7*MESH//8), 3)
+        pygame.draw.line(surf, BLACK, (x+MESH//8, y+MESH//2), (x+7*MESH//8, y+MESH//2), 3)
+        if self.pressed:
+            pygame.draw.rect(surf, BLACK, Rect(x + MESH // 4, y + MESH // 4, MESH // 2 + 1, MESH // 2 + 1), 0)
+        elif self.persistent:
+            pygame.draw.rect(surf, BLACK, Rect(x + MESH // 4, y + MESH // 4, MESH // 2 + 1, MESH // 2 + 1), 1)
+
 
 # keys must exactly match the corresponding class name
 # args is a list of (attr, type)s
@@ -226,6 +256,13 @@ OBJ_TYPE = {"Wall":
                 {"type": GateWall,
                  "layer": Layer.SOLID,
                  "args": []}}
+
+DEPENDENT_OBJS = ["GateWall"]
+
+for x in OBJ_TYPE:
+    OBJ_TYPE[x]["save"] = True
+for x in DEPENDENT_OBJS:
+    OBJ_TYPE[x]["save"] = False
 
 # Produce a list of key strings for each layer
 OBJ_BY_LAYER = {}

@@ -45,7 +45,6 @@ class StartMenu(Menu):
         super().__init__(parent, pos)
         self.add_item("Sokoban Editor", "edit_sokoban")
         self.add_item("Play Sokoban Level", "play_sokoban")
-        self.add_item("Play Go (Local)", "play_go")
         self.add_item("Quit", "mgr.terminate")
         self.color_def = NAVY_BLUE
         self.color_high = GOLD

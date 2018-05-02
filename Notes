@@ -1,23 +1,18 @@
 TO DO
 
-Sokoban:
 - Implement more mechanics
 - Use a "camera" to display rooms larger than the screen
+- Make doors between rooms
 - Make a (sample version of a) "campaign" with a series of levels
 - Implement box selection and dragging in editor
-- Make Rooms and Doors (NOTE: the player's starting position is really structural, not positional)
 
-Go:
-- Complete the implementation of Go with passing, scoring, and a ko rule (maybe)
-- Actually make it work online (not a Go problem)
-- Determine what can be abstracted into the Game class
-  (this may not become clear until we've implemented a few different games)
+Note about room size: position coordinates are stored as single bytes
+This means that, as they are, rooms can be no larger than 256 x 256
+This is probably not a problem, but I've noted the places where this
+size limit matters with "IF NOT BIGMAP"
 
-Online Multiplayer:
-- Try again with IPv6 (currently trying to implement this)
-- Make the online communication protocol neater and safer
-- Unify local and online implementations of multiplayer games
-  (as it is, the code for Go is duplicated)
-
-Other:
-- Make things prettier
+Note about the SwitchLink structure: it might be cool to have (optional)
+multiple switches and multiple gates, with an "all/at least one" boolean
+This can be accomplished by building a "fake" switch that receives signals
+from all of the real switches, and only signals the gates when
+the condition is satisfied.
