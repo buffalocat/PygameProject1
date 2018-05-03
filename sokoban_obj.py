@@ -34,7 +34,8 @@ class GameObj:
                  rideable=False, pushable=False, sticky=False,
                  is_player=False, is_switch=False, is_switchable=False,
                  dynamic=False):
-        #If we were passed no map, this isn't a "real" object
+        # If we were passed no map, this isn't a "real" object
+        # Any object in the editor is virtual
         self.virtual = map is None
 
         self.map = map
@@ -54,9 +55,7 @@ class GameObj:
         self.is_switch = is_switch
         self.is_switchable = is_switchable
 
-        # Does this object need to receive signals when anything changes
-        # We could demand that virtual objects aren't dynamic,
-        # but they never get put on the map so it shiouldn't matter.
+        # Dynamic objects are alerted when anything moves
         self.dynamic = dynamic
 
         # Real objects get groups and IDs
@@ -66,6 +65,10 @@ class GameObj:
             self.group = frozenset([self])
             self.id = GameObj.ID_COUNT
             GameObj.ID_COUNT += 1
+            self.real_init()
+
+    def real_init(self):
+        pass
 
     def merge_group(self, obj):
         self.root.group |= obj.root.group
@@ -129,6 +132,8 @@ class Car(GameObj):
 class Player(GameObj):
     def __init__(self, map, pos):
         super().__init__(map, pos, color=GREY, is_player=True)
+
+    def real_init(self):
         self.riding = None
 
     def draw(self, surf, pos):
@@ -138,18 +143,19 @@ class Player(GameObj):
 
 class GateBase(GameObj):
     def __init__(self, map, pos, default):
-        super().__init__(map, pos, color=LIGHT_GREY, is_switchable=True, dynamic=True)
-        # Is the Gate up right now
-        self.active = False
         # Is the Gate up by default
         self.default = default
+        super().__init__(map, pos, color=LIGHT_GREY, is_switchable=True, dynamic=True)
+
+    def real_init(self):
+        # Is the Gate up right now
+        self.active = False
         # Have we been told to go up
         self.signal = False
         # Is the Gate trying to go up, but is blocked
         self.waiting = False
         self.wall = GateWall(self.map, self.pos)
-        if not self.virtual:
-            self.set_signal(False)
+        self.set_signal(False)
 
     def set_signal(self, signal):
         self.signal = signal
@@ -192,18 +198,20 @@ class GateWall(GameObj):
 
 class Switch(GameObj):
     def __init__(self, map, pos, persistent):
-        super().__init__(map, pos, color=LIGHT_BROWN, is_switch=True, dynamic=True)
-        self.persistent = persistent
         self.pressed = False
+        self.persistent = persistent
+        super().__init__(map, pos, color=LIGHT_BROWN, is_switch=True, dynamic=True)
+
+    def real_init(self):
         # These don't actually HAVE to be gates; any switchable object works
-        self.gates = []
+        self.links = []
 
     # If opposite, then the gate goes up when the switch is pressed
-    def add_gate(self, gate):
-        self.gates.append(gate)
+    def add_link(self, link):
+        self.links.append(link)
 
     def send_signal(self):
-        for gate in self.gates:
+        for gate in self.links:
             gate.set_signal(self.pressed)
 
     def update(self):
@@ -270,7 +278,8 @@ OBJ_BY_LAYER = {}
 for layer in Layer:
     OBJ_BY_LAYER[layer] = []
 for name in OBJ_TYPE:
-    OBJ_BY_LAYER[OBJ_TYPE[name]["layer"]].append(name)
+    if name not in DEPENDENT_OBJS:
+        OBJ_BY_LAYER[OBJ_TYPE[name]["layer"]].append(name)
 
 OBJ_COLORS = {"Red": RED,
               "Blue": BLUE,

@@ -15,26 +15,43 @@ DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
 
 ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
+class Camera(IntEnum):
+    EDITOR = auto()
+    FOLLOW_PLAYER = auto()
+
 # Tentative structure of GSSokoban.objmap:
 # A 2d array (list of lists) indexed by positions in the room
 # Each element of which is a list with an element for each Layer
 # The value is the object at that position on that layer, or None
 
 class GSSokoban(GameState):
-    def __init__(self, mgr, parent, pick_level=False, testing=False):
+    def __init__(self, mgr, parent, pick_level=False, testing=False, editing=False):
         super().__init__(mgr, parent)
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
+        self.cam_mode = Camera.FOLLOW_PLAYER
         self.bg = WHITE
         if pick_level:
             filename = None
         else:
             filename = TEMP_MAP_FILE if testing else DEFAULT_MAP_FILE
-        if not self.load(filename=filename):
+        if not self.load(filename=filename, editing=editing):
             self.previous_state()
 
     def update_dynamic(self):
         for obj in self.dynamic:
             obj.update()
+
+    def update_camera(self):
+        if self.cam_mode == Camera.FOLLOW_PLAYER:
+            px, py = self.player.pos
+            if self.w < DISPLAY_WIDTH:
+                self.camx = (self.w - DISPLAY_WIDTH) // 2
+            else:
+                self.camx = min(max(0, px - DISPLAY_CX), self.w - DISPLAY_WIDTH)
+            if self.h < DISPLAY_HEIGHT:
+                self.camy = (self.h - DISPLAY_HEIGHT) // 2
+            else:
+                self.camy = min(max(0, py - DISPLAY_CY), self.h - DISPLAY_HEIGHT)
 
     def draw(self):
         super().draw()
@@ -93,6 +110,8 @@ class GSSokoban(GameState):
             self.objmap[self.player.pos][Layer.PLAYER] = None
             self.objmap[new_pos][Layer.PLAYER] = self.player
             self.player.pos = new_pos
+        self.update_camera()
+        return True
 
     def try_move(self, dpos, obj):
         # The set of all groups influenced by the motion
@@ -154,19 +173,28 @@ class GSSokoban(GameState):
         x, y = pos
         return x * MESH + PADDING, y * MESH + PADDING
 
-    @staticmethod
-    def grid_pos(x, y):
-        return (x - PADDING) // MESH, (y - PADDING) // MESH
+    def grid_pos(self, x, y):
+        return ((x - PADDING) // MESH) + self.camx, ((y - PADDING) // MESH) + self.camy
 
     def draw_room(self):
         # This will need to be changed significantly
         # once we have a "camera" object
-        pygame.draw.rect(self.surf, WHITE, Rect(PADDING, PADDING, MESH*ROOM_WIDTH, MESH*ROOM_HEIGHT))
-        for pos in self.objmap:
+        pygame.draw.rect(self.surf, WHITE, Rect(PADDING, PADDING, MESH * DISPLAY_WIDTH, MESH * DISPLAY_HEIGHT))
+        for i in range(DISPLAY_WIDTH):
+            for j in range(DISPLAY_HEIGHT):
+                pos = (i + self.camx, j + self.camy)
+                if self.in_bounds(pos):
+                    for obj in self.objmap[pos]:
+                        if obj is not None:
+                            obj.draw(self.surf, self.real_pos((i, j)))
+                else:
+                    pygame.draw.rect(self.surf, OUT_OF_BOUNDS_COLOR,
+                                     Rect(self.real_pos((i, j)), (MESH, MESH)), 0)
+        """for pos in self.objmap:
             if self.in_bounds(pos):
                 for obj in self.objmap[pos]:
                     if obj is not None:
-                        obj.draw(self.surf, self.real_pos(pos))
+                        obj.draw(self.surf, self.real_pos(pos))"""
 
     def save(self, filename=None):
         if self.player is None:
@@ -214,13 +242,12 @@ class GSSokoban(GameState):
                 # Begin Structural Data
                 for s in self.structures:
                     file.write(bytes(s))
-
         except IOError:
             print("Failed to write to file")
             return False
         return True
 
-    def load(self, filename=None, start_pos=None):
+    def load(self, filename=None, start_pos=None, editing=False):
         if filename is None:
             filename = filedialog.askopenfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None:
@@ -232,11 +259,14 @@ class GSSokoban(GameState):
                 self.w = int(room_size[0])
                 self.h = int(room_size[1])
                 self.init_map()
+                # This is what we pass to objects and structures as we make them
+                map_arg = None if editing else self.objmap
                 self.player = None
                 self.dynamic = []
                 self.structures = []
                 x, y = 0, 0
-                self.create_wall_border()
+                if not editing:
+                    self.create_wall_border()
                 # First load in the positional data
                 while True:
                     pieces = file.read(1)[0]
@@ -252,22 +282,23 @@ class GSSokoban(GameState):
                     # IF NOT BIGMAP
                     for i in range(n):
                         pos = tuple(map(int, pos_str[2*i : 2*i + 2]))
-                        obj = obj_type(self.objmap, pos, *args)
+                        obj = obj_type(map_arg, pos, *args)
                         self.objmap[pos][obj.layer] = obj
                         if obj.dynamic:
                             self.dynamic.append(obj)
                 # Some state behavior is determined by map position
-                for pos in self.objmap:
-                    for obj in self.objmap[pos]:
-                        if obj is not None and obj.sticky:
-                            self.update_group(obj)
+                if not editing:
+                    for pos in self.objmap:
+                        for obj in self.objmap[pos]:
+                            if obj is not None and obj.sticky:
+                                self.update_group(obj)
                 # Get the default player position
                 if start_pos is None:
                     player_pos = tuple(file.read(2))
                     self.player = self.objmap[player_pos][Layer.PLAYER]
                     if self.player is not None:
                         car = self.objmap[self.player.pos][Layer.SOLID]
-                        if car.rideable:
+                        if car is not None and car.rideable:
                             self.player.riding = car
                 else:
                     # Later, we should be able to carry player_pos info from previous room
@@ -281,20 +312,11 @@ class GSSokoban(GameState):
                         break
                     str = StrType(file.read(1)[0])
                     data = file.read(bytes)
-                    if str == StrType.SWITCH_LINK:
-                        switch = None
-                        gates = []
-                        # IF NOT BIGMAP
-                        for i in range(len(data)//3):
-                            pos = tuple(data[3*i:3*i+2])
-                            layer = data[3*i+2]
-                            if i == 0:
-                                switch = self.objmap[pos][layer]
-                            else:
-                                gates.append(self.objmap[pos][layer])
-                        self.structures.append(SwitchLink(self.objmap, switch, gates))
-            for s in self.structures:
-                s.activate()
+                    self.structures.append(load_str_from_data(map_arg, self.objmap, str, data))
+            if not editing:
+                for s in self.structures:
+                    s.activate()
+            self.update_camera()
         except IOError:
             print("Failed to read file")
             return False
@@ -304,6 +326,12 @@ class GSSokoban(GameState):
         self.objmap = {(x,y): [None for _ in range(NUM_LAYERS + 1)]
                        for x in range(-1, self.w + 1)
                        for y in range(-1, self.h + 1)}
+
+    def expand_map(self):
+        for x in range(-1, self.w + 1):
+            for y in range(-1, self.h + 1):
+                if (x,y) not in self.objmap:
+                    self.objmap[(x,y)] = [None for _ in range(NUM_LAYERS + 1)]
 
 # Turn a bytestring back into data, according to some simple rules
 # Note we'll never store the integer 0 (need to be clever, use enums, etc)

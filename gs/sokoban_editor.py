@@ -2,7 +2,7 @@ import tkinter as tk
 
 from enum import Enum, auto
 
-from gs.sokoban import GSSokoban
+from gs.sokoban import GSSokoban, Camera, DIR
 from sokoban_obj import *
 from sokoban_str import *
 from font import FONT_MEDIUM
@@ -33,7 +33,8 @@ VERBOSE = True
 class GSSokobanEditor(GSSokoban):
     def __init__(self, mgr, parent):
         self.editor = tk.Frame(mgr.root)
-        super().__init__(mgr, parent, testing=False)
+        super().__init__(mgr, parent, testing=False, editing=True)
+        self.cam_mode = Camera.EDITOR
         self.init_attrs()
         self.init_editor_frame()
         self.reinit()
@@ -41,6 +42,8 @@ class GSSokobanEditor(GSSokoban):
 
     def init_attrs(self):
         """Initialize attributes so we know they exist"""
+        self.camx = 0
+        self.camy = 0
         self.edit_layer = None
         self.create_args = None
 
@@ -57,6 +60,11 @@ class GSSokobanEditor(GSSokoban):
         self.cur_structure = None
         self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
         self.reset_selection()
+        # Display the room dimensions
+        self.room_width_var.set(str(self.w))
+        self.room_height_var.set(str(self.h))
+        # Make sure part of the room is in view
+        self.move_camera((0,0))
 
 
     def init_editor_frame(self):
@@ -75,6 +83,37 @@ class GSSokobanEditor(GSSokoban):
         clear_b.grid(row=0, column=2)
         play_b.grid(row=0, column=3)
         quit_b.grid(row=0, column=4)
+
+        def room_width_callback(*args):
+            try:
+                self.w = min(int(self.room_width_var.get()), 255)
+                self.update_camera()
+                self.expand_map()
+            except ValueError:
+                pass
+
+        def room_height_callback(*args):
+            try:
+                self.h = min(int(self.room_height_var.get()), 255)
+                self.update_camera()
+                self.expand_map()
+            except ValueError:
+                pass
+
+        room_size = tk.Frame(self.editor, padx=PADX, pady=PADY)
+        room_size.pack(side=tk.TOP, fill=tk.X)
+        self.room_width_var = tk.StringVar()
+        self.room_width_var.trace("w", room_width_callback)
+        self.room_height_var = tk.StringVar()
+        self.room_height_var.trace("w", room_height_callback)
+        room_width_label = tk.Label(room_size, text="Width")
+        room_height_label = tk.Label(room_size, text="Height")
+        room_width = tk.Entry(room_size, textvariable=self.room_width_var)
+        room_height = tk.Entry(room_size, textvariable=self.room_height_var)
+        room_width_label.grid()
+        room_width.grid(row=0, column=1)
+        room_height_label.grid()
+        room_height.grid(row=1, column=1)
 
         # SET UP PACK STRUCTURE UNDER THE MENU
         two_cols = tk.Frame(self.editor)
@@ -118,7 +157,7 @@ class GSSokobanEditor(GSSokoban):
             current = tk.Radiobutton(layer_select, text=layer.name, variable=self.edit_layer_var, value=int(layer))
             layer_button_dict[layer] = current
             self.object_type_menu_dict[layer] = tk.OptionMenu(object_type_menu_frame, self.create_mode_var,
-                                                              *(x for x in OBJ_BY_LAYER[layer] if x not in DEPENDENT_OBJS))
+                                                              *(x for x in OBJ_BY_LAYER[layer]))
             current.pack()
 
         object_settings = tk.Frame(object_select, padx=PADX, pady=PADY)
@@ -231,8 +270,8 @@ class GSSokobanEditor(GSSokoban):
 
     def draw(self):
         super().draw()
-        self.sample.draw(self.surf, (PADDING, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
-        self.text.draw(self.surf, (2 * PADDING + MESH, ROOM_HEIGHT*MESH + PADDING * 3 // 2))
+        self.sample.draw(self.surf, (PADDING, DISPLAY_HEIGHT * MESH + PADDING * 3 // 2))
+        self.text.draw(self.surf, (2 * PADDING + MESH, DISPLAY_HEIGHT * MESH + PADDING * 3 // 2))
         self.draw_selection()
 
     def draw_selection(self):
@@ -255,27 +294,41 @@ class GSSokobanEditor(GSSokoban):
                 elif obj.layer == Layer.PLAYER:
                     pygame.draw.circle(self.surf, color, (x+MESH//2, y+MESH//2), MESH//3, SELECT_THICKNESS)
 
+    def move_camera(self, dir):
+        dx, dy = dir
+        self.camx = min(max(-DISPLAY_WIDTH+1, self.camx + dx), self.w-1)
+        self.camy = min(max(-DISPLAY_HEIGHT+1, self.camy + dy), self.h-1)
+
     def handle_input(self):
         for event in pygame.event.get(KEYDOWN):
+            if event.key in DIR.keys():
+                self.move_camera(DIR[event.key])
             if event.key in LAYER_HOTKEYS:
                 self.edit_layer_var.set(LAYER_HOTKEYS[event.key])
             if event.key in OBJ_HOTKEYS:
                 self.create_mode_var.set(OBJ_BY_LAYER[self.edit_layer][OBJ_HOTKEYS[event.key]
                                                                        % len(OBJ_BY_LAYER[self.edit_layer])])
         for event in pygame.event.get(MOUSEBUTTONDOWN):
-            pos = self.grid_pos(*pygame.mouse.get_pos())
-            if self.in_bounds(pos):
-                if event.button == MB_LEFT:
-                    self.handle_left_click(pos)
-                elif event.button == MB_RIGHT:
-                    self.handle_right_click(pos)
+            x, y = pygame.mouse.get_pos()
+            if self.in_editor(x, y):
+                pos = self.grid_pos(x, y)
+                if self.in_bounds(pos):
+                    if event.button == MB_LEFT:
+                        self.handle_left_click(pos)
+                    elif event.button == MB_RIGHT:
+                        self.handle_right_click(pos)
         for event in pygame.event.get(MOUSEMOTION):
-            pos = self.grid_pos(*pygame.mouse.get_pos())
-            if self.in_bounds(pos):
-                if pygame.mouse.get_pressed()[MB_LEFT-1]:
-                    self.handle_left_click(pos)
-                elif pygame.mouse.get_pressed()[MB_RIGHT-1]:
-                    self.handle_right_click(pos)
+            x, y = pygame.mouse.get_pos()
+            if self.in_editor(x, y):
+                pos = self.grid_pos(x, y)
+                if self.in_bounds(pos):
+                    if pygame.mouse.get_pressed()[MB_LEFT-1]:
+                        self.handle_left_click(pos)
+                    elif pygame.mouse.get_pressed()[MB_RIGHT-1]:
+                        self.handle_right_click(pos)
+
+    def in_editor(self, x, y):
+        return EDITOR_RECT.collidepoint(x, y)
 
     def handle_left_click(self, pos):
         if pygame.key.get_mods() & KMOD_CTRL:
@@ -284,8 +337,7 @@ class GSSokobanEditor(GSSokoban):
                 self.add_to_selection(obj)
         else:
             if not self.selected:
-                if self.create(pos):
-                    self.update_dynamic()
+                self.create(pos)
             self.reset_selection()
 
     def handle_right_click(self, pos):
@@ -295,8 +347,7 @@ class GSSokobanEditor(GSSokoban):
                 self.remove_from_selection(obj)
         else:
             if not self.selected:
-                if self.destroy(pos):
-                    self.update_dynamic()
+                self.destroy(pos)
             self.reset_selection()
 
     def add_to_selection(self, obj):
@@ -335,15 +386,15 @@ class GSSokobanEditor(GSSokoban):
 
     def load_reinit(self):
         """Load a map and reinitialize the editor"""
-        if self.load():
+        if self.load(editing=True):
             self.reinit()
 
     def clear(self):
-        self.load(filename=DEFAULT_MAP_FILE)
+        self.load(filename=DEFAULT_MAP_FILE, editing=True)
 
     def create(self, pos):
         if self.objmap[pos][self.edit_layer] is None:
-            obj = self.create_mode(self.objmap, pos, *(x.get() for x in self.create_args))
+            obj = self.create_mode(None, pos, *(x.get() for x in self.create_args))
             self.objmap[pos][obj.layer] = obj
             if obj.is_player:
                 self.player = obj
@@ -352,12 +403,11 @@ class GSSokobanEditor(GSSokoban):
 
     def destroy(self, pos):
         obj = self.objmap[pos][self.edit_layer]
-        if obj is not None and str(obj) not in DEPENDENT_OBJS:
-            obj.destroy()
+        if obj is not None:
             # Remove the object from any structures it's in
             for s in self.structures:
                 if obj in s.get_objs():
-                    s.destroy(self.structures, obj)
+                    s.remove(self.structures, obj)
             self.objmap[pos][self.edit_layer] = None
             return True
         return False
@@ -379,7 +429,7 @@ class GSSokobanEditor(GSSokoban):
                 return False
         if switch is None or len(connections) == 0:
             return False
-        self.structures.append(SwitchLink(self.objmap, switch, connections))
+        self.structures.append(SwitchLink(None, switch, connections))
         self.reset_selection()
         return True
 
@@ -394,9 +444,10 @@ class GSSokobanEditor(GSSokoban):
         self.text = TextLines()
         self.text.color = BLACK
         self.text.font = FONT_MEDIUM
-        self.text.height = 40
+        self.text.height = 36
         self.text.add_line("Left/Right click to Create/Destroy")
         self.text.add_line("Hold ctrl while clicking to Select")
+        self.text.add_line("Arrow keys to move. QWE Change layer")
 
     def destroy_editor(self):
         widgets = [self.editor]

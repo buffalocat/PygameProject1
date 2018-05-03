@@ -9,6 +9,7 @@ class StrType (IntEnum):
 
 class Structure:
     def __init__(self, map, str):
+        self.virtual = map is None
         self.map = map
         self.str = str
 
@@ -24,26 +25,35 @@ class Structure:
 
     # We need the room's list of structures, in case we have to
     # remove self from it, or add new ones during destruction
-    def destroy(self, str_list, obj):
+    def remove(self, str_list, obj):
         pass
 
     def __str__(self):
         return self.__class__.__name__
 
+    def __bytes__(self):
+        name = str(self)
+        attrs = [name.encode(encoding="utf-8")]
+        attrs += [pack_bytes(getattr(self, attrname), typename)
+                  for attrname, typename in STR_TYPE[name]["args"]]
+        sizes = bytes([len(attrs)] + [len(x) for x in attrs])
+        return sizes + b"".join(attrs)
+
+
 class SwitchLink(Structure):
     def __init__(self, map, switch, gates):
-        super().__init__(map, StrType.SWITCH_LINK)
         self.switch = switch
         self.gates = gates
+        super().__init__(map, StrType.SWITCH_LINK)
 
     def activate(self):
         for gate in self.gates:
-            self.switch.add_gate(gate)
+            self.switch.add_link(gate)
 
     def get_objs(self):
         return self.gates + [self.switch]
 
-    def destroy(self, str_list, obj):
+    def remove(self, str_list, obj):
         if obj is self.switch:
             str_list.remove(self)
         elif obj in self.gates:
@@ -67,9 +77,38 @@ class Group(Structure):
     def get_objs(self):
         return self.objs
 
-    def destroy(self, str_list, obj):
+    def remove(self, str_list, obj):
         pass
 
     def __bytes__(self):
         data = []
         return self.encode(bytes(data))
+
+
+STR_TYPE = {"SwitchLink":
+                {"type": SwitchLink,
+                 "args": []}}
+
+def load_str_from_data(map_arg, objmap, str, data):
+    if str == StrType.SWITCH_LINK:
+        switch = None
+        gates = []
+        # IF NOT BIGMAP
+        for i in range(len(data) // 3):
+            pos = tuple(data[3 * i:3 * i + 2])
+            layer = data[3 * i + 2]
+            if i == 0:
+                switch = objmap[pos][layer]
+            else:
+                gates.append(objmap[pos][layer])
+        return SwitchLink(map_arg, switch, gates)
+    else:
+        return None
+
+def pack_bytes(attr, typename):
+    if typename == "color" or typename == "bool":
+        return bytes(attr)
+    elif typename == "obj":
+        return bytes([*attr.pos, attr.layer])
+    elif typename[-2:] == "[]":
+        return bytes([len(attr)]) + b"".join(pack_bytes(x, typename[-2:]) for x in attr)

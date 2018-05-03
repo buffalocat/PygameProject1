@@ -4,6 +4,8 @@ from pygame.constants import *
 import numpy as np
 
 # This prints shit to the screen
+from pygame.rect import Rect
+
 DEBUG = True
 
 # System Constants
@@ -31,15 +33,21 @@ MB_MIDDLE = 2
 MB_RIGHT = 3
 MOUSE_BUTTONS = [1,2,3]
 
-KEYS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
+DIR_KEYS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
 
 # Sokoban Specific Constants
 
-PADDING = 20
-ROOM_WIDTH = 20
-ROOM_HEIGHT = 15
+PADDING = 10
+DISPLAY_WIDTH = 24
+DISPLAY_HEIGHT = 16
+# "Coordinates" of the center of the screen
+DISPLAY_CX = (DISPLAY_WIDTH - 1)//2
+DISPLAY_CY = (DISPLAY_HEIGHT - 1)//2
+
 # The size of a spot on the board
 MESH = 30
+
+EDITOR_RECT = Rect(PADDING, PADDING, DISPLAY_WIDTH*MESH, DISPLAY_HEIGHT*MESH)
 
 # Colors
 DIM_FILTER = (0, 0, 0, 50)
@@ -50,6 +58,7 @@ MAROON = (50, 0, 0)
 BLACK = (0, 0, 0)
 GREY = (100, 100, 100)
 LIGHT_GREY = (200, 200, 200)
+LIGHT_BLUE = (100, 160, 255)
 WHITE = (255, 255, 255)
 BLUE = (50, 50, 200)
 PURPLE = (200, 50, 200)
@@ -59,3 +68,5 @@ LIGHT_BROWN = (240, 200, 120)
 HOT_PINK = (255, 0, 200)
 NEON_GREEN = (150, 255, 0)
 BRIGHT_ORANGE= (255, 150, 0)
+
+OUT_OF_BOUNDS_COLOR = LIGHT_BLUE
