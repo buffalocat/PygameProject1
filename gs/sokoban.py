@@ -40,6 +40,8 @@ class GSSokoban(GameState):
     def update_dynamic(self):
         for obj in self.dynamic:
             obj.update()
+        for str in self.structures:
+            str.update()
 
     def update_camera(self):
         if self.cam_mode == Camera.FOLLOW_PLAYER:
@@ -190,11 +192,6 @@ class GSSokoban(GameState):
                 else:
                     pygame.draw.rect(self.surf, OUT_OF_BOUNDS_COLOR,
                                      Rect(self.real_pos((i, j)), (MESH, MESH)), 0)
-        """for pos in self.objmap:
-            if self.in_bounds(pos):
-                for obj in self.objmap[pos]:
-                    if obj is not None:
-                        obj.draw(self.surf, self.real_pos(pos))"""
 
     def save(self, filename=None):
         if self.player is None:

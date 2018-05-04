@@ -155,9 +155,9 @@ class GateBase(GameObj):
         # Is the Gate trying to go up, but is blocked
         self.waiting = False
         self.wall = GateWall(self.map, self.pos)
-        self.set_signal(False)
+        self.set_signal(None, False)
 
-    def set_signal(self, signal):
+    def set_signal(self, switch, signal):
         self.signal = signal
         self.check_consistency()
 
@@ -211,8 +211,8 @@ class Switch(GameObj):
         self.links.append(link)
 
     def send_signal(self):
-        for gate in self.links:
-            gate.set_signal(self.pressed)
+        for link in self.links:
+            link.set_signal(self, self.pressed)
 
     def update(self):
         if not self.pressed and self.map[self.pos][Layer.SOLID] is not None:

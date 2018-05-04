@@ -60,9 +60,6 @@ class GSSokobanEditor(GSSokoban):
         self.cur_structure = None
         self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
         self.reset_selection()
-        # Display the room dimensions
-        self.room_width_var.set(str(self.w))
-        self.room_height_var.set(str(self.h))
         # Make sure part of the room is in view
         self.move_camera((0,0))
 
@@ -229,8 +226,14 @@ class GSSokobanEditor(GSSokoban):
         link_switch_b = tk.Button(create_structure, text="Link Switch", command=self.link_switch)
         link_switch_b.pack()
 
+        self.link_switch_all, link_switch_all_box = self.make_variable_widget(create_structure, "All", "bool")
+        link_switch_all_box.pack()
+        self.link_switch_persistent, link_switch_persistent_box = self.make_variable_widget(create_structure, "Persistent", "bool")
+        link_switch_persistent_box.pack()
+
         create_group_b = tk.Button(create_structure, text="Create Group", command=self.create_group)
-        create_group_b.pack()
+        # This doesn't exist yet
+        #create_group_b.pack()
 
         # EDIT OBJECT
         edit_object = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
@@ -313,19 +316,19 @@ class GSSokobanEditor(GSSokoban):
             if self.in_editor(x, y):
                 pos = self.grid_pos(x, y)
                 if self.in_bounds(pos):
+                    if event.button == MB_RIGHT:
+                        self.handle_right_click(pos)
                     if event.button == MB_LEFT:
                         self.handle_left_click(pos)
-                    elif event.button == MB_RIGHT:
-                        self.handle_right_click(pos)
         for event in pygame.event.get(MOUSEMOTION):
             x, y = pygame.mouse.get_pos()
             if self.in_editor(x, y):
                 pos = self.grid_pos(x, y)
                 if self.in_bounds(pos):
+                    if pygame.mouse.get_pressed()[MB_RIGHT - 1]:
+                        self.handle_right_click(pos)
                     if pygame.mouse.get_pressed()[MB_LEFT-1]:
                         self.handle_left_click(pos)
-                    elif pygame.mouse.get_pressed()[MB_RIGHT-1]:
-                        self.handle_right_click(pos)
 
     def in_editor(self, x, y):
         return EDITOR_RECT.collidepoint(x, y)
@@ -416,20 +419,22 @@ class GSSokobanEditor(GSSokoban):
         pass
 
     def link_switch(self):
-        switch = None
-        connections = []
+        switches = []
+        gates = []
         for obj in self.selected:
             if obj.is_switch:
-                if switch is not None:
-                    return False
-                switch = obj
+                switches.append(obj)
             elif obj.is_switchable:
-                connections.append(obj)
+                gates.append(obj)
             else:
                 return False
-        if switch is None or len(connections) == 0:
+        if len(switches) == 0 or len(gates) == 0:
             return False
-        self.structures.append(SwitchLink(None, switch, connections))
+        if len(switches) == 1:
+            self.structures.append(SingleSwitchLink(None, switches[0], gates))
+        else:
+            self.structures.append(MultiSwitchLink(None, switches, gates, self.link_switch_all.get(),
+                                                   self.link_switch_persistent.get()))
         self.reset_selection()
         return True
 
