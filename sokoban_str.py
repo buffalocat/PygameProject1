@@ -13,9 +13,8 @@ class StrType (IntEnum):
         return bytes([self])
 
 class Structure:
-    def __init__(self, map, str):
-        self.virtual = map is None
-        self.map = map
+    def __init__(self, state, str):
+        self.state = state
         self.str = str
 
     def activate(self):
@@ -148,23 +147,6 @@ class Door(Structure):
     def update(self):
         if self.state.player.pos in self.pos:
             self.state.try_room_change(self.dest_file, self.dest_pos)
-
-
-# Not actually implemented yet
-class Group(Structure):
-    def __init__(self, map, objs):
-        super().__init__(map, StrType.GROUP)
-        self.objs = objs
-
-    def get_objs(self):
-        return self.objs
-
-    def remove(self, str_list, obj):
-        pass
-
-    def __bytes__(self):
-        data = []
-        return self.encode(bytes(data))
 
 
 STR_TYPE = {"SwitchLink":

@@ -4,6 +4,7 @@ from pygame.constants import *
 import numpy as np
 
 # This prints shit to the screen
+from pygame.constants import K_RIGHT, K_DOWN, K_LEFT, K_UP
 from pygame.rect import Rect
 
 DEBUG = True
@@ -33,9 +34,15 @@ MB_MIDDLE = 2
 MB_RIGHT = 3
 MOUSE_BUTTONS = [1,2,3]
 
-DIR_KEYS = [K_LEFT, K_RIGHT, K_UP, K_DOWN]
-
 # Sokoban Specific Constants
+
+INPUT_KEYS = [K_RIGHT, K_DOWN, K_LEFT, K_UP, K_z]
+DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
+ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+
+# This is a tradeoff between convenience and wasting the user's memory
+# Probably around 100 is a sane value
+MAX_DELTAS = 100
 
 PADDING = 10
 DISPLAY_WIDTH = 24

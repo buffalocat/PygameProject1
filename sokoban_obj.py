@@ -30,15 +30,15 @@ NUM_LAYERS = 3
 class GameObj:
     ID_COUNT = 0
 
-    def __init__(self, map, pos, color=None, layer=None,
+    def __init__(self, state, pos, color=None, layer=None,
                  rideable=False, pushable=False, sticky=False,
                  is_player=False, is_switch=False, is_switchable=False,
                  dynamic=False):
         # If we were passed no map, this isn't a "real" object
         # Any object in the editor is virtual
-        self.virtual = map is None
+        self.virtual = state is None
 
-        self.map = map
+        self.state = state
         self.pos = pos
         # Get layer automatically, unless we're told
         if layer is None:
@@ -60,21 +60,13 @@ class GameObj:
 
         # Real objects get groups and IDs
         if not self.virtual:
-            # These may only be useful for pushable objects
-            self.root = self
-            self.group = frozenset([self])
+            self.group = Group(state, {self})
             self.id = GameObj.ID_COUNT
             GameObj.ID_COUNT += 1
             self.real_init()
 
     def real_init(self):
         pass
-
-    def merge_group(self, obj):
-        self.root.group |= obj.root.group
-        for child in obj.root.group:
-            child.root = self.root
-            child.group = None
 
     def draw(self, surf, pos):
         x, y = pos
@@ -110,28 +102,59 @@ class GameObj:
         return sizes + b"".join(attrs)
 
 
+# This is basically a structure, but we don't treat it that way
+# because Groups aren't actually saved to the .map
+class Group:
+    def __init__(self, state, objs):
+        self.state = state
+        self.map = state.objmap
+        self.checked = True
+        self.objs = objs
+
+    def update_delta(self):
+        """Find all adjacent groups to merge with"""
+        seen = self.find_adjacent_groups()
+        if len(seen) > 1:
+            self.state.delta.add_group_merge(seen)
+
+    def find_adjacent_groups(self):
+        seen = {self}
+        to_check = [self]
+        while to_check:
+            for obj in to_check.pop().objs:
+                for dx, dy in ADJ:
+                    x, y = obj.pos
+                    adj = self.map[(x + dx, y + dy)][Layer.SOLID]
+                    if (adj is not None and adj.group not in seen
+                            and obj.sticky and adj.sticky and obj.color is adj.color):
+                        seen.add(adj.group)
+        for group in seen:
+            group.checked = True
+        return seen
+
+
 class Wall(GameObj):
-    def __init__(self, map, pos):
-        super().__init__(map, pos, color=BLACK)
+    def __init__(self, state, pos):
+        super().__init__(state, pos, color=BLACK)
 
 
 class Box(GameObj):
-    def __init__(self, map, pos, color, sticky):
-        super().__init__(map, pos, color=color,
+    def __init__(self, state, pos, color, sticky):
+        super().__init__(state, pos, color=color,
                          pushable=True,
                          sticky=sticky)
 
 
 class Car(GameObj):
-    def __init__(self, map, pos, color, sticky):
-        super().__init__(map, pos, color=color, rideable=True,
+    def __init__(self, state, pos, color, sticky):
+        super().__init__(state, pos, color=color, rideable=True,
                          pushable=True,
                          sticky=sticky)
 
 
 class Player(GameObj):
-    def __init__(self, map, pos):
-        super().__init__(map, pos, color=GREY, is_player=True)
+    def __init__(self, state, pos):
+        super().__init__(state, pos, color=GREY, is_player=True)
 
     def real_init(self):
         self.riding = None
@@ -142,19 +165,20 @@ class Player(GameObj):
 
 
 class GateBase(GameObj):
-    def __init__(self, map, pos, default):
+    def __init__(self, state, pos, default):
         # Is the Gate up by default
         self.default = default
-        super().__init__(map, pos, color=LIGHT_GREY, is_switchable=True, dynamic=True)
+        super().__init__(state, pos, color=LIGHT_GREY, is_switchable=True, dynamic=True)
 
     def real_init(self):
+        self.map = self.state.objmap
         # Is the Gate up right now
         self.active = False
         # Have we been told to go up
         self.signal = False
         # Is the Gate trying to go up, but is blocked
         self.waiting = False
-        self.wall = GateWall(self.map, self.pos)
+        self.wall = GateWall(self.state, self.pos)
         self.set_signal(None, False)
 
     def set_signal(self, switch, signal):
@@ -192,19 +216,20 @@ class GateBase(GameObj):
 
 # Maybe include something to ensure that GateWalls are ignored during level saving?
 class GateWall(GameObj):
-    def __init__(self, map, pos):
-        super().__init__(map, pos, color=NAVY_BLUE)
+    def __init__(self, state, pos):
+        super().__init__(state, pos, color=NAVY_BLUE)
 
 
 class Switch(GameObj):
-    def __init__(self, map, pos, persistent):
+    def __init__(self, state, pos, persistent):
         self.pressed = False
         self.persistent = persistent
-        super().__init__(map, pos, color=LIGHT_BROWN, is_switch=True, dynamic=True)
+        super().__init__(state, pos, color=LIGHT_BROWN, is_switch=True, dynamic=True)
 
     def real_init(self):
         # These don't actually HAVE to be gates; any switchable object works
         self.links = []
+        self.map = self.state.objmap
 
     # If opposite, then the gate goes up when the switch is pressed
     def add_link(self, link):

@@ -1,19 +1,12 @@
+from collections import deque
 from tkinter import filedialog, messagebox
 
-import pygame
-from enum import IntEnum, Enum
-
-from pygame.rect import Rect
-
 from background import BGCrystal
-from game_constants import *
+from delta import Delta
 from game_state import GameState
 from sokoban_obj import *
 from sokoban_str import *
 
-DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
-
-ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
 class Camera(IntEnum):
     EDITOR = auto()
@@ -29,6 +22,9 @@ class GSSokoban(GameState):
         super().__init__(mgr, parent)
         self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
         self.cam_mode = Camera.FOLLOW_PLAYER
+        self.input_key = None
+        self.delta = Delta()
+        self.deltas = deque(maxlen=MAX_DELTAS)
         self.bg = WHITE
         if pick_level:
             filename = None
@@ -48,23 +44,95 @@ class GSSokoban(GameState):
             px, py = self.player.pos
             if self.w < DISPLAY_WIDTH:
                 self.camx = (self.w - DISPLAY_WIDTH) // 2
+                self.camxoff = MESH //2 if ((self.w - DISPLAY_WIDTH) % 2) else 0
             else:
                 self.camx = min(max(0, px - DISPLAY_CX), self.w - DISPLAY_WIDTH)
+                self.camxoff = 0
             if self.h < DISPLAY_HEIGHT:
                 self.camy = (self.h - DISPLAY_HEIGHT) // 2
+                self.camyoff = MESH //2 if ((self.h - DISPLAY_HEIGHT) % 2) else 0
             else:
                 self.camy = min(max(0, py - DISPLAY_CY), self.h - DISPLAY_HEIGHT)
+                self.camyoff = 0
 
     def draw(self):
         super().draw()
         self.draw_room()
 
+    def pre_update(self):
+        self.delta = Delta()
+
     def handle_input(self):
+        self.input_key = None
         for event in pygame.event.get(KEYDOWN):
             if event.type == KEYDOWN:
-                if event.key in DIR.keys():
-                    self.try_move_player(DIR[event.key])
+                if event.key in INPUT_KEYS:
+                    self.input_key = event.key
                     break
+
+    def update(self):
+        input = self.input_key
+        # Don't save a Delta at all unless the player Did Something
+        if input is not None:
+            # Undo (if we have any Deltas left)
+            if input == K_z and self.deltas:
+                self.delta = self.deltas.pop()
+                self.undo_delta()
+            # Otherwise, we handle input and put the Delta on the queue
+            else:
+                if input in DIR:
+                    self.try_move_player(DIR[input])
+                self.apply_delta()
+                self.deltas.append(self.delta)
+
+    def apply_delta(self):
+        # 1: Remove objects from their old map positions, update internal position
+        # 2: Put them in current positions
+        # 3: Check all groups (update Delta with merges)
+        # 4: Alert all dynamic objects
+        # 5: Resolve merges in the Delta
+        move_objs = []
+        for dir in DIR.values():
+            dx, dy = dir
+            for pos, layer in self.delta.moves[dir]:
+                obj = self.objmap[pos][layer]
+                self.objmap[pos][layer] = None
+                move_objs.append(obj)
+                x, y = obj.pos
+                obj.pos = (x+dx, y+dy)
+        for obj in move_objs:
+            self.objmap[obj.pos][obj.layer] = obj
+            obj.group.checked = False
+        for obj in move_objs:
+            if not obj.group.checked:
+                obj.group.update_delta()
+        self.update_dynamic()
+        for group_set in self.delta.group_merges:
+            self.merge_groups(group_set)
+
+    def undo_delta(self):
+        move_objs = []
+        for dir in DIR.values():
+            dx, dy = dir
+            for pos, layer in self.delta.moves[dir]:
+                pos = (pos[0] + dx, pos[1] + dy)
+                obj = self.objmap[pos][layer]
+                self.objmap[pos][layer] = None
+                move_objs.append(obj)
+                x, y = obj.pos
+                obj.pos = (x - dx, y - dy)
+        for obj in move_objs:
+            self.objmap[obj.pos][obj.layer] = obj
+        for group_set in self.delta.group_merges:
+            for group in group_set:
+                for obj in group.objs:
+                    obj.group = group
+
+    def merge_groups(self, group_set):
+        if len(group_set) > 1:
+            new_group = Group(self, set().union(*(group.objs for group in group_set)))
+            for obj in new_group.objs:
+                obj.group = new_group
 
     def in_bounds(self, pos):
         return 0 <= pos[0] < self.w and 0 <= pos[1] < self.h
@@ -72,10 +140,10 @@ class GSSokoban(GameState):
     def create_wall_border(self):
         for y in [-1, self.h]:
             for x in range(self.w):
-                self.objmap[(x, y)][Layer.SOLID] = Wall(self.objmap, (x,y))
+                self.objmap[(x, y)][Layer.SOLID] = Wall(self, (x,y))
         for x in [-1, self.w]:
             for y in range(self.h):
-                self.objmap[(x, y)][Layer.SOLID] = Wall(self.objmap, (x,y))
+                self.objmap[(x, y)][Layer.SOLID] = Wall(self, (x,y))
 
     def get_solid(self, pos):
         """Return the solid object at pos, if it exists"""
@@ -101,65 +169,42 @@ class GSSokoban(GameState):
             return False
         x, y = self.player.pos
         dx, dy = dpos
-        new_pos = (x+dx, y+dy)
-        if self.objmap[new_pos][Layer.PLAYER] is not None:
+        if self.objmap[(x+dx, y+dy)][Layer.PLAYER] is not None:
             return False
+        self.delta.add_move(self.player, dpos)
         car = self.player.riding
         can_move = True
         if car is not None:
             can_move = self.try_move(dpos, car)
-        if can_move:
-            self.objmap[self.player.pos][Layer.PLAYER] = None
-            self.objmap[new_pos][Layer.PLAYER] = self.player
-            self.player.pos = new_pos
+        if not can_move:
+            self.delta.reset_moves()
         self.update_camera()
         return True
 
     def try_move(self, dpos, obj):
         # The set of all groups influenced by the motion
-        seen = {obj.root}
-        to_check = [obj.root]
+        seen = {obj.group}
+        to_check = [obj.group]
         can_move = True
         dx, dy = dpos
         while can_move and to_check:
             # Grab the next group to check
-            for cur in to_check.pop().group:
+            for cur in to_check.pop().objs:
+                self.delta.add_move(cur, dpos)
                 x, y = cur.pos
                 # adj is the tile that cur is trying to move into
                 adj = self.objmap[(x+dx, y+dy)][Layer.SOLID]
-                # There was no solid object there
-                if adj is None:
+                # There was nothing there, or we were already considering it
+                if adj is None or adj.group in seen:
                     continue
-                # There is a solid object, and we're already considering it
-                if adj.root in seen:
-                    continue
-                # It's new, but we can push it
+                # It's new, and we can push it
                 elif adj.pushable:
-                    seen.add(adj.root)
-                    to_check.append(adj.root)
+                    seen.add(adj.group)
+                    to_check.append(adj.group)
                 # We're trying to push something we can't push
                 else:
                     can_move = False
                     break
-        if can_move:
-            # Four steps:
-            # 1: Remove objects from their old map positions
-            # 2: Put them in current positions, update pos
-            # 3: Update other data (like groups)
-            # 4: Alert all dynamic objects
-            for tile in seen:
-                for obj in list(tile.group):
-                    self.objmap[obj.pos][Layer.SOLID] = None
-                    x, y = obj.pos
-                    obj.pos = (x+dx, y+dy)
-            for tile in seen:
-                for obj in list(tile.group):
-                    self.objmap[obj.pos][Layer.SOLID] = obj
-            for tile in seen:
-                for obj in list(tile.group):
-                    if obj.sticky:
-                        self.update_group(obj)
-            self.update_dynamic()
         return can_move
 
     def update_group(self, obj):
@@ -257,10 +302,11 @@ class GSSokoban(GameState):
                 self.h = int(room_size[1])
                 self.init_map()
                 # This is what we pass to objects and structures as we make them
-                map_arg = None if editing else self.objmap
+                state_arg = None if editing else self
                 self.player = None
                 self.dynamic = []
                 self.structures = []
+                groups_to_check = set()
                 x, y = 0, 0
                 if not editing:
                     self.create_wall_border()
@@ -279,16 +325,18 @@ class GSSokoban(GameState):
                     # IF NOT BIGMAP
                     for i in range(n):
                         pos = tuple(map(int, pos_str[2*i : 2*i + 2]))
-                        obj = obj_type(map_arg, pos, *args)
+                        obj = obj_type(state_arg, pos, *args)
                         self.objmap[pos][obj.layer] = obj
                         if obj.dynamic:
                             self.dynamic.append(obj)
+                        if obj.sticky and not editing:
+                            obj.group.checked = False
+                            groups_to_check.add(obj.group)
                 # Some state behavior is determined by map position
                 if not editing:
-                    for pos in self.objmap:
-                        for obj in self.objmap[pos]:
-                            if obj is not None and obj.sticky:
-                                self.update_group(obj)
+                    for group in groups_to_check:
+                        if not group.checked:
+                            self.merge_groups(group.find_adjacent_groups())
                 # Get the default player position
                 if start_pos is None:
                     player_pos = tuple(file.read(2))
@@ -309,7 +357,7 @@ class GSSokoban(GameState):
                         break
                     str = StrType(file.read(1)[0])
                     data = file.read(bytes)
-                    self.structures.append(load_str_from_data(map_arg, self.objmap, str, data))
+                    self.structures.append(load_str_from_data(state_arg, self.objmap, str, data))
             if not editing:
                 for s in self.structures:
                     s.activate()

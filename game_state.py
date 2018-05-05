@@ -21,6 +21,9 @@ class GameState:
         self.surf = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
         pass
 
+    def pre_update(self):
+        pass
+
     def handle_input(self):
         self.root.handle_input()
         pygame.event.clear()

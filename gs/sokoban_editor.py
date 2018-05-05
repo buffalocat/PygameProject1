@@ -441,6 +441,9 @@ class GSSokobanEditor(GSSokoban):
     def create_group(self):
         pass
 
+    def update(self):
+        pass
+
     def set_sample(self, *args):
         # An "object" at a fake position, not recorded on the grid
         self.sample = self.create_mode(None, None, *(x.get() for x in self.create_args))

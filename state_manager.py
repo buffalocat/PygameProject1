@@ -15,8 +15,10 @@ class StateManager:
 
     def update(self):
         self.check_for_quit()
+        # If there's anything to do before input, do it now
+        self.state.pre_update()
+        # Input handling should finish executing as quickly as possible, so as to not drop input
         self.state.handle_input()
-        # This should finish executing as quickly as possible, so as to not drop input
         pygame.event.clear()
         # All of the "work" should go in update()
         self.state.update()
