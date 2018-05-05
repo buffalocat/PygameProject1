@@ -2,3 +2,4 @@ venv/**
 **.pyc
 .idea/**
 maps/__temp.map
+maps/private/**

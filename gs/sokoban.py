@@ -182,9 +182,10 @@ class GSSokoban(GameState):
         can_move = True
         if car is not None:
             can_move = self.try_move(dpos, car)
+        self.update_camera()
         if not can_move:
             self.delta.reset_moves()
-        self.update_camera()
+            return False
         return True
 
     def try_move(self, dpos, obj):
