@@ -18,8 +18,8 @@ WINDOW_HEIGHT = 600
 
 MAIN_DIR = os.getcwd()
 MAPS_DIR = os.path.join(MAIN_DIR, "maps")
-TEMP_MAP_FILE = os.path.join(MAPS_DIR, "__temp.map")
-DEFAULT_MAP_FILE = os.path.join(MAPS_DIR, "__default.map")
+TEMP_MAP_FILE = os.path.join(MAPS_DIR, "__temp.mapx")
+DEFAULT_MAP_FILE = os.path.join(MAPS_DIR, "__default.mapx")
 
 # I/O
 FILE_CHUNK_SIZE = 4096

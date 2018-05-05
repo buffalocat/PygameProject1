@@ -80,17 +80,15 @@ class GSSokoban(GameState):
                 self.undo_delta()
             # Otherwise, we handle input and put the Delta on the queue
             else:
+                moved = False
                 if input in DIR:
-                    self.try_move_player(DIR[input])
-                self.apply_delta()
-                self.deltas.append(self.delta)
+                    moved = self.try_move_player(DIR[input])
+                if moved:
+                    self.apply_delta()
+                    self.deltas.append(self.delta)
 
     def apply_delta(self):
-        # 1: Remove objects from their old map positions, update internal position
-        # 2: Put them in current positions
-        # 3: Check all groups (update Delta with merges)
-        # 4: Alert all dynamic objects
-        # 5: Resolve merges in the Delta
+        # Move Objects, and set up group merging
         move_objs = []
         for dir in DIR.values():
             dx, dy = dir
@@ -106,11 +104,21 @@ class GSSokoban(GameState):
         for obj in move_objs:
             if not obj.group.checked:
                 obj.group.update_delta()
-        self.update_dynamic()
+        # Merge Groups
         for group_set in self.delta.group_merges:
             self.merge_groups(group_set)
+        # Update dynamic objects, and have them push their changes on the delta
+        self.update_dynamic()
 
     def undo_delta(self):
+        for str, delta in self.delta.structure:
+            str.undo_delta(delta)
+        for obj, delta in self.delta.dynamic:
+            obj.undo_delta(delta)
+        for group_set in self.delta.group_merges:
+            for group in group_set:
+                for obj in group.objs:
+                    obj.group = group
         move_objs = []
         for dir in DIR.values():
             dx, dy = dir
@@ -123,16 +131,14 @@ class GSSokoban(GameState):
                 obj.pos = (x - dx, y - dy)
         for obj in move_objs:
             self.objmap[obj.pos][obj.layer] = obj
-        for group_set in self.delta.group_merges:
-            for group in group_set:
-                for obj in group.objs:
-                    obj.group = group
 
     def merge_groups(self, group_set):
         if len(group_set) > 1:
             new_group = Group(self, set().union(*(group.objs for group in group_set)))
             for obj in new_group.objs:
                 obj.group = new_group
+            return new_group
+        return None
 
     def in_bounds(self, pos):
         return 0 <= pos[0] < self.w and 0 <= pos[1] < self.h
@@ -247,7 +253,7 @@ class GSSokoban(GameState):
             filename = filedialog.asksaveasfilename(initialdir=MAPS_DIR, filetypes=["map .map"])
         if filename is None or filename == "":
             return False
-        if filename[-4:] != ".map":
+        if filename.split(".")[-1] not in ["map", "mapx"]:
             filename += ".map"
         try:
             with open(filename, "w+b") as file:
@@ -318,7 +324,7 @@ class GSSokoban(GameState):
                     sizes = [file.read(1)[0] for _ in range(pieces)]
                     attrs = [file.read(n) for n in sizes]
                     obj_type = OBJ_TYPE[attrs[0].decode()]["type"]
-                    args = list(map(process_data, attrs[1:]))
+                    args = list(map(unpack_bytes, attrs[1:]))
                     # IF NOT BIGMAP
                     n = int.from_bytes(file.read(2), byteorder="little")
                     pos_str = file.read(2*n)
@@ -350,14 +356,14 @@ class GSSokoban(GameState):
                     pass
                 # Load in the structural data of the map
                 while True:
-                    bytes = int.from_bytes(file.read(2), byteorder="little")
-                    if bytes == 0:
-                        # Either put in a b"\x00\x00" to signal the end
-                        # or just let it reach the end of the file
+                    try:
+                        strtype = StrType(file.read(1)[0])
+                    except IndexError:
                         break
-                    str = StrType(file.read(1)[0])
-                    data = file.read(bytes)
-                    self.structures.append(load_str_from_data(state_arg, self.objmap, str, data))
+                    pieces = file.read(1)[0]
+                    sizes = [file.read(1)[0] for _ in range(pieces)]
+                    attrs = [file.read(n) for n in sizes]
+                    self.structures.append(load_str_from_data(self, strtype, attrs))
             if not editing:
                 for s in self.structures:
                     s.activate()
@@ -380,7 +386,7 @@ class GSSokoban(GameState):
 
 # Turn a bytestring back into data, according to some simple rules
 # Note we'll never store the integer 0 (need to be clever, use enums, etc)
-def process_data(s):
+def unpack_bytes(s):
     if s == b"":
         return False
     elif s == b"\x00":

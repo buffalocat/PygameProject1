@@ -430,11 +430,8 @@ class GSSokobanEditor(GSSokoban):
                 return False
         if len(switches) == 0 or len(gates) == 0:
             return False
-        if len(switches) == 1:
-            self.structures.append(SingleSwitchLink(None, switches[0], gates))
-        else:
-            self.structures.append(MultiSwitchLink(None, switches, gates, self.link_switch_all.get(),
-                                                   self.link_switch_persistent.get()))
+        self.structures.append(SwitchLink(None, switches, gates, self.link_switch_all.get(),
+                                          self.link_switch_persistent.get()))
         self.reset_selection()
         return True
 

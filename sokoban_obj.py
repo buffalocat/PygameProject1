@@ -81,11 +81,10 @@ class GameObj:
                                MESH // 4 + RIDE_CIRCLE_THICKNESS//2,
                                RIDE_CIRCLE_THICKNESS)
 
-    def destroy(self):
+    def undo_delta(self, delta):
         pass
 
-    def check_consistency(self):
-        """Make sure the state makes sense after changing properties"""
+    def destroy(self):
         pass
 
     def display_str(self):
@@ -128,6 +127,7 @@ class Group:
                     if (adj is not None and adj.group not in seen
                             and obj.sticky and adj.sticky and obj.color is adj.color):
                         seen.add(adj.group)
+                        to_check.append(adj.group)
         for group in seen:
             group.checked = True
         return seen
@@ -179,11 +179,12 @@ class GateBase(GameObj):
         # Is the Gate trying to go up, but is blocked
         self.waiting = False
         self.wall = GateWall(self.state, self.pos)
-        self.set_signal(None, False)
+        self.set_signal(False)
 
-    def set_signal(self, switch, signal):
+    def set_signal(self, signal):
         self.signal = signal
         self.check_consistency()
+        self.push_delta()
 
     def check_consistency(self):
         # Reverse the signal if the gate should be up by default
@@ -203,6 +204,18 @@ class GateBase(GameObj):
             elif self.map[self.pos][Layer.SOLID] is not self.wall:
                 self.active = False
                 self.waiting = True
+
+    def push_delta(self):
+        self.state.delta.add_dynamic(self, (self.active, self.signal, self.waiting))
+
+    def undo_delta(self, delta):
+        """delta = (bool active, bool signal, bool waiting)"""
+        self.active, self.signal, self.waiting = delta
+        if self.active:
+            self.map[self.pos][Layer.SOLID] = self.wall
+        else:
+            if self.map[self.pos][Layer.SOLID] is self.wall:
+                self.map[self.pos][Layer.SOLID] = None
 
     def update(self):
         if self.waiting:
@@ -240,12 +253,20 @@ class Switch(GameObj):
             link.set_signal(self, self.pressed)
 
     def update(self):
+        pressed_before = self.pressed
         if not self.pressed and self.map[self.pos][Layer.SOLID] is not None:
             self.pressed = True
             self.send_signal()
         if not self.persistent and self.pressed and self.map[self.pos][Layer.SOLID] is None:
             self.pressed = False
             self.send_signal()
+        if self.pressed != pressed_before:
+            self.state.delta.add_dynamic(self, pressed_before)
+
+    def undo_delta(self, delta):
+        """delta = bool pressed"""
+        self.pressed = delta
+        self.send_signal()
 
     def draw(self, surf, pos):
         x, y = pos
