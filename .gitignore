@@ -1,5 +1,5 @@
 venv/**
 **.pyc
 .idea/**
-maps/__temp.map
+maps/__temp.mapx
 maps/private/**
