@@ -168,6 +168,10 @@ class GateBase(GameObj):
     def __init__(self, state, pos, default):
         # Is the Gate up by default
         self.default = default
+        if pos == (23, 16):
+            self.special = True
+        else:
+            self.special = False
         super().__init__(state, pos, color=LIGHT_GREY, is_switchable=True, dynamic=True)
 
     def real_init(self):
@@ -184,12 +188,12 @@ class GateBase(GameObj):
     def set_signal(self, signal):
         self.signal = signal
         self.check_consistency()
-        self.push_delta()
 
     def check_consistency(self):
         # Reverse the signal if the gate should be up by default
         signal = self.signal if not self.default else not self.signal
         # The gate doesn't want to be up; stop waiting
+        before = (self.active, self.signal, self.waiting)
         if not signal:
             self.waiting = False
             self.active = False
@@ -204,9 +208,8 @@ class GateBase(GameObj):
             elif self.map[self.pos][Layer.SOLID] is not self.wall:
                 self.active = False
                 self.waiting = True
-
-    def push_delta(self):
-        self.state.delta.add_dynamic(self, (self.active, self.signal, self.waiting))
+        if before != (self.active, self.signal, self.waiting):
+            self.state.delta.add_dynamic(self, before)
 
     def undo_delta(self, delta):
         """delta = (bool active, bool signal, bool waiting)"""

@@ -1,7 +1,7 @@
 from collections import deque
 from tkinter import filedialog, messagebox
 
-from background import BGCrystal
+from background import BGCrystal, BGSolid
 from delta import Delta
 from game_state import GameState
 from sokoban_obj import *
@@ -20,7 +20,7 @@ class Camera(IntEnum):
 class GSSokoban(GameState):
     def __init__(self, mgr, parent, pick_level=False, testing=False, editing=False):
         super().__init__(mgr, parent)
-        self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, GOLD))
+        self.root.set_bg(BGSolid(GOLD))
         self.cam_mode = Camera.FOLLOW_PLAYER
         self.input_key = None
         self.delta = Delta()
@@ -85,8 +85,8 @@ class GSSokoban(GameState):
                     moved = self.try_move_player(DIR[input])
                 if moved:
                     self.apply_delta()
-                    self.update_camera()
                     self.deltas.append(self.delta)
+        self.update_camera()
 
     def apply_delta(self):
         # Move Objects, and set up group merging
@@ -349,12 +349,11 @@ class GSSokoban(GameState):
                 # Get the default player position
                 if start_pos is None:
                     player_pos = tuple(file.read(2))
-                    print(player_pos)
-                    self.player = self.objmap[player_pos][Layer.PLAYER]
-                    if self.player is not None:
-                        car = self.objmap[self.player.pos][Layer.SOLID]
-                        if car is not None and car.rideable:
-                            self.player.riding = car
+                    self.player = Player(self, player_pos)
+                    self.objmap[player_pos][Layer.PLAYER] = self.player
+                    car = self.objmap[self.player.pos][Layer.SOLID]
+                    if car is not None and car.rideable:
+                        self.player.riding = car
                 else:
                     # Later, we should be able to carry player_pos info from previous room
                     pass

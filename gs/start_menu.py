@@ -2,7 +2,7 @@
 
 import pygame
 
-from background import BGGrid, BGColorChangeGrid, BGCrystal
+from background import BGGrid, BGColorChangeGrid, BGCrystal, BGSolid
 from font import FONT_LARGE
 from game_constants import *
 from game_state import GameState
@@ -17,7 +17,7 @@ from widget import Menu
 class GSStartMenu(GameState):
     def __init__(self, mgr):
         super().__init__(mgr)
-        self.root.set_bg(BGCrystal(WINDOW_HEIGHT, WINDOW_WIDTH, (30,150,80)))
+        self.root.set_bg(BGSolid((30,150,80)))
         self.root.add(StartMenu(self, (10, 10)))
 
     def edit_sokoban(self):

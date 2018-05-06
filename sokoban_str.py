@@ -83,7 +83,6 @@ class SwitchLink(Structure):
     def undo_delta(self, delta):
         """delta = bool signal"""
         self.signal = delta
-        self.send_signal()
 
     def send_signal(self):
         for gate in self.gates:

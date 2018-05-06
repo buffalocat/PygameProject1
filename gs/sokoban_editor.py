@@ -24,6 +24,8 @@ SELECT_COLOR = {SelectMode.STANDARD: HOT_PINK,
 
 SELECT_THICKNESS = 3
 
+MAP_JUMP_DISTANCE = 10
+
 # GUI CONSTANTS
 PADX = 5
 PADY = 5
@@ -237,13 +239,13 @@ class GSSokobanEditor(GSSokoban):
 
         # EDIT OBJECT
         edit_object = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
-        DUMB_BUTTON = tk.Button(edit_object, text="8^Y")
-        DUMB_BUTTON.pack()
+        #delete_object_b = tk.Button(edit_object, text="Delete Object")
+        #delete_object_b.pack()
 
         # EDIT STRUCTURE
         edit_structure = tk.LabelFrame(edit_selection, text="Edit Structure", padx=PADX, pady=PADY)
-        OTHER_DUMB_BUTTON = tk.Button(edit_structure, text="Y^8")
-        OTHER_DUMB_BUTTON.pack()
+        delete_structure = tk.Button(edit_structure, text="Delete Structure", command=self.delete_selected_structure)
+        delete_structure.pack()
 
         # Finish putting together the EDIT SELECTION frame
         edit_selection_dict = {SelectMode.NONE: edit_selection_nothing,
@@ -256,6 +258,12 @@ class GSSokobanEditor(GSSokoban):
 
         # Nothing actually points to the dummy frame anymore: destroy it
         dummy_frame.destroy()
+
+    def delete_selected_structure(self):
+        if self.cur_structure is not None:
+            self.structures.remove(self.cur_structure)
+            self.cur_structure = None
+            self.reset_selection()
 
     def make_variable_widget(self, frame, name, type):
         var = None
@@ -297,15 +305,16 @@ class GSSokobanEditor(GSSokoban):
                 elif obj.layer == Layer.PLAYER:
                     pygame.draw.circle(self.surf, color, (x+MESH//2, y+MESH//2), MESH//3, SELECT_THICKNESS)
 
-    def move_camera(self, dir):
-        dx, dy = dir
+    def move_camera(self, dir, distance=1):
+        dx, dy = dir[0] * distance, dir[1] * distance
         self.camx = min(max(-DISPLAY_WIDTH+1, self.camx + dx), self.w-1)
         self.camy = min(max(-DISPLAY_HEIGHT+1, self.camy + dy), self.h-1)
 
     def handle_input(self):
         for event in pygame.event.get(KEYDOWN):
             if event.key in DIR.keys():
-                self.move_camera(DIR[event.key])
+                distance = MAP_JUMP_DISTANCE if pygame.key.get_mods() & KMOD_SHIFT else 1
+                self.move_camera(DIR[event.key], distance)
             if event.key in LAYER_HOTKEYS:
                 self.edit_layer_var.set(LAYER_HOTKEYS[event.key])
             if event.key in OBJ_HOTKEYS:
@@ -364,10 +373,10 @@ class GSSokobanEditor(GSSokoban):
 
     def remove_from_selection(self, obj):
         if obj in self.selected:
-            # The list could get larger
             i = self.selected.index(obj)
             self.selected.remove(obj)
             self.select_list.delete(i)
+            # The list could get larger
             self.structure_select = [s for s in self.structures
                                      if all(x in s.get_objs() for x in self.selected)]
             self.reset_structure_select_list()
@@ -407,6 +416,7 @@ class GSSokobanEditor(GSSokoban):
     def destroy(self, pos):
         obj = self.objmap[pos][self.edit_layer]
         if obj is not None:
+            self.remove_from_selection(obj)
             # Remove the object from any structures it's in
             for s in self.structures:
                 if obj in s.get_objs():
