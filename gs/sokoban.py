@@ -85,6 +85,7 @@ class GSSokoban(GameState):
                     moved = self.try_move_player(DIR[input])
                 if moved:
                     self.apply_delta()
+                    self.update_camera()
                     self.deltas.append(self.delta)
 
     def apply_delta(self):
@@ -182,7 +183,6 @@ class GSSokoban(GameState):
         can_move = True
         if car is not None:
             can_move = self.try_move(dpos, car)
-        self.update_camera()
         if not can_move:
             self.delta.reset_moves()
             return False
@@ -222,9 +222,11 @@ class GSSokoban(GameState):
             if adj is not None and adj.sticky and obj.color == adj.color and obj.root is not adj.root:
                 obj.merge_group(adj)
 
-    @staticmethod
-    def real_pos(pos):
+    def real_pos(self, pos, camera=True):
         x, y = pos
+        if camera:
+            x -= self.camx
+            y -= self.camy
         return x * MESH + PADDING, y * MESH + PADDING
 
     def grid_pos(self, x, y):
@@ -240,10 +242,10 @@ class GSSokoban(GameState):
                 if self.in_bounds(pos):
                     for obj in self.objmap[pos]:
                         if obj is not None:
-                            obj.draw(self.surf, self.real_pos((i, j)))
+                            obj.draw(self.surf, self.real_pos(pos))
                 else:
                     pygame.draw.rect(self.surf, OUT_OF_BOUNDS_COLOR,
-                                     Rect(self.real_pos((i, j)), (MESH, MESH)), 0)
+                                     Rect(self.real_pos(pos), (MESH, MESH)), 0)
 
     def save(self, filename=None):
         if self.player is None:
@@ -347,6 +349,7 @@ class GSSokoban(GameState):
                 # Get the default player position
                 if start_pos is None:
                     player_pos = tuple(file.read(2))
+                    print(player_pos)
                     self.player = self.objmap[player_pos][Layer.PLAYER]
                     if self.player is not None:
                         car = self.objmap[self.player.pos][Layer.SOLID]

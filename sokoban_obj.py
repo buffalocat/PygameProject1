@@ -6,7 +6,7 @@ from game_constants import *
 
 # Rendering Constants
 RIDE_CIRCLE_THICKNESS = 2
-STICKY_OUTLINE_THICKNESS = 2
+NONSTICK_OUTLINE_THICKNESS = 2
 
 
 # A tile can have one of each type of object
@@ -71,8 +71,8 @@ class GameObj:
     def draw(self, surf, pos):
         x, y = pos
         offset = 0
-        if self.sticky:
-            offset = STICKY_OUTLINE_THICKNESS
+        if self.pushable and not self.sticky:
+            offset = NONSTICK_OUTLINE_THICKNESS
             pygame.draw.rect(surf, LIGHT_GREY, Rect((x, y), (MESH, MESH)))
         pygame.draw.rect(surf, self.color, Rect((x + offset, y + offset), (MESH - 2*offset, MESH - 2*offset)))
         if self.rideable:
