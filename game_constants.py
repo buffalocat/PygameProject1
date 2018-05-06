@@ -41,20 +41,24 @@ DIR = {K_RIGHT: (1, 0), K_DOWN: (0, 1), K_LEFT: (-1, 0), K_UP: (0, -1)}
 ADJ = [(1, 0), (0, 1), (-1, 0), (0, -1)]
 
 # This is a tradeoff between convenience and wasting the user's memory
-# Probably around 100 is a sane value
-MAX_DELTAS = 100
-
-PADDING = 10
-DISPLAY_WIDTH = 24
-DISPLAY_HEIGHT = 16
-# "Coordinates" of the center of the screen
-DISPLAY_CX = (DISPLAY_WIDTH - 1)//2
-DISPLAY_CY = (DISPLAY_HEIGHT - 1)//2
+# At 100, you sometimes run out, so let's be safe
+# (I doubt this is is gonna significantly fill up anyone's RAM)
+MAX_DELTAS = 1000
 
 # The size of a spot on the board
 MESH = 30
 
-EDITOR_RECT = Rect(PADDING, PADDING, DISPLAY_WIDTH*MESH, DISPLAY_HEIGHT*MESH)
+DISPLAY_WIDTH = 23
+DISPLAY_HEIGHT = 15
+CENTER_PADDINGX = (WINDOW_WIDTH - DISPLAY_WIDTH*MESH)//2
+CENTER_PADDINGY = (WINDOW_HEIGHT - DISPLAY_HEIGHT*MESH)//2
+EDIT_PADDING = 10
+
+# "Coordinates" of the center of the screen
+DISPLAY_CX = (DISPLAY_WIDTH - 1)//2
+DISPLAY_CY = (DISPLAY_HEIGHT - 1)//2
+
+EDITOR_RECT = Rect(EDIT_PADDING, EDIT_PADDING, DISPLAY_WIDTH*MESH, DISPLAY_HEIGHT*MESH)
 
 # Colors
 DIM_FILTER = (0, 0, 0, 50)
@@ -75,5 +79,6 @@ LIGHT_BROWN = (240, 200, 120)
 HOT_PINK = (255, 0, 200)
 NEON_GREEN = (150, 255, 0)
 BRIGHT_ORANGE= (255, 150, 0)
+LAVENDER = (130, 100, 150)
 
 OUT_OF_BOUNDS_COLOR = LIGHT_BLUE

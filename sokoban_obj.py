@@ -42,7 +42,7 @@ class GameObj:
         self.pos = pos
         # Get layer automatically, unless we're told
         if layer is None:
-            self.layer = OBJ_TYPE[str(self)]["layer"]
+            self.layer = OBJ_TYPE[self.name()]["layer"]
         else:
             self.layer = Layer(layer)
         self.color = color
@@ -90,11 +90,11 @@ class GameObj:
     def display_str(self):
         return f"{self} {self.pos}"
 
-    def __str__(self):
+    def name(self):
         return self.__class__.__name__
 
     def __bytes__(self):
-        name = str(self)
+        name = self.name()
         attrs = [name.encode(encoding="utf-8")]
         attrs += [bytes(getattr(self, x[0])) for x in OBJ_TYPE[name]["args"]]
         sizes = bytes([len(attrs)] + [len(x) for x in attrs])

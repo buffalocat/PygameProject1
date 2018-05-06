@@ -1,11 +1,9 @@
 import tkinter as tk
 
-from enum import Enum, auto
-
-from gs.sokoban import GSSokoban, Camera, DIR
+from gs.sokoban import Camera, GSSokoban
 from sokoban_obj import *
 from sokoban_str import *
-from font import FONT_MEDIUM
+from font import FONT_MEDIUM, FONT_SMALL
 from sokoban_obj import Layer
 from widget import TextLines
 
@@ -46,6 +44,8 @@ class GSSokobanEditor(GSSokoban):
         """Initialize attributes so we know they exist"""
         self.camx = 0
         self.camy = 0
+        self.padx = EDIT_PADDING
+        self.pady = EDIT_PADDING
         self.edit_layer = None
         self.create_args = None
 
@@ -281,8 +281,8 @@ class GSSokobanEditor(GSSokoban):
 
     def draw(self):
         super().draw()
-        self.sample.draw(self.surf, (PADDING, DISPLAY_HEIGHT * MESH + PADDING * 3 // 2))
-        self.text.draw(self.surf, (2 * PADDING + MESH, DISPLAY_HEIGHT * MESH + PADDING * 3 // 2))
+        self.sample.draw(self.surf, (self.padx, DISPLAY_HEIGHT * MESH + self.pady * 3 // 2))
+        self.text.draw(self.surf, (2 * self.padx + MESH, DISPLAY_HEIGHT * MESH + self.pady * 3 // 2))
         self.draw_selection()
 
     def draw_selection(self):
@@ -394,7 +394,7 @@ class GSSokobanEditor(GSSokoban):
 
     def reset_structure_select_list(self):
         self.structure_select_list.delete(0, tk.END)
-        self.structure_select_list.insert(0, *self.structure_select)
+        self.structure_select_list.insert(0, *[str.name() for str in self.structure_select])
 
     def load_reinit(self):
         """Load a map and reinitialize the editor"""
@@ -422,6 +422,8 @@ class GSSokobanEditor(GSSokoban):
                 if obj in s.get_objs():
                     s.remove(self.structures, obj)
             self.objmap[pos][self.edit_layer] = None
+            if obj.is_player:
+                self.search_for_player()
             return True
         return False
 
@@ -458,11 +460,13 @@ class GSSokobanEditor(GSSokoban):
     def create_text(self):
         self.text = TextLines()
         self.text.color = BLACK
-        self.text.font = FONT_MEDIUM
-        self.text.height = 36
-        self.text.add_line("Left/Right click to Create/Destroy")
-        self.text.add_line("Hold ctrl while clicking to Select")
-        self.text.add_line("Arrow keys to move. QWE Change layer")
+        self.text.font = FONT_SMALL
+        self.text.height = 20
+        self.text.add_line("Left/Right click to Create/Destroy (only on current layer)")
+        self.text.add_line("Hold ctrl while clicking to Select/Deselect")
+        self.text.add_line("Use arrow keys to move; hold shift to move faster")
+        self.text.add_line("QWE change layers quickly; 1-9 cycle through objects")
+        self.text.add_line("In-game Controls: Arrow keys to move, Z to undo")
 
     def destroy_editor(self):
         widgets = [self.editor]

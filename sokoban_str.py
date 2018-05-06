@@ -35,7 +35,7 @@ class Structure:
     def update(self):
         pass
 
-    def __str__(self):
+    def name(self):
         return self.__class__.__name__
 
     def __bytes__(self):
@@ -92,7 +92,7 @@ class SwitchLink(Structure):
         return self.gates + self.switches
 
     def remove(self, str_list, obj):
-        if obj is self.switches:
+        if obj in self.switches:
             i = self.switches.index(obj)
             del self.active[i]
             self.switches.remove(obj)

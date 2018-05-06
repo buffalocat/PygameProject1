@@ -20,8 +20,10 @@ class Camera(IntEnum):
 class GSSokoban(GameState):
     def __init__(self, mgr, parent, pick_level=False, testing=False, editing=False):
         super().__init__(mgr, parent)
-        self.root.set_bg(BGSolid(GOLD))
+        self.root.set_bg(BGSolid(LAVENDER))
         self.cam_mode = Camera.FOLLOW_PLAYER
+        self.padx = CENTER_PADDINGX
+        self.pady = CENTER_PADDINGY
         self.input_key = None
         self.delta = Delta()
         self.deltas = deque(maxlen=MAX_DELTAS)
@@ -169,6 +171,7 @@ class GSSokoban(GameState):
                     if self.objmap[(x,y)][Layer.PLAYER].is_player:
                         self.player = self.objmap[(x,y)][Layer.PLAYER]
                         return True
+        self.player = None
         return False
 
     def try_move_player(self, dpos):
@@ -227,15 +230,15 @@ class GSSokoban(GameState):
         if camera:
             x -= self.camx
             y -= self.camy
-        return x * MESH + PADDING, y * MESH + PADDING
+        return x * MESH + self.padx, y * MESH + self.pady
 
     def grid_pos(self, x, y):
-        return ((x - PADDING) // MESH) + self.camx, ((y - PADDING) // MESH) + self.camy
+        return ((x - self.padx) // MESH) + self.camx, ((y - self.pady) // MESH) + self.camy
 
     def draw_room(self):
         # This will need to be changed significantly
         # once we have a "camera" object
-        pygame.draw.rect(self.surf, WHITE, Rect(PADDING, PADDING, MESH * DISPLAY_WIDTH, MESH * DISPLAY_HEIGHT))
+        pygame.draw.rect(self.surf, WHITE, Rect(self.padx, self.pady, MESH * DISPLAY_WIDTH, MESH * DISPLAY_HEIGHT))
         for i in range(DISPLAY_WIDTH):
             for j in range(DISPLAY_HEIGHT):
                 pos = (i + self.camx, j + self.camy)
