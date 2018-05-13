@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import messagebox
 
 from gs.sokoban import Camera, GSSokoban
 from sokoban_obj import *
@@ -37,20 +38,21 @@ class GSSokobanEditor(GSSokoban):
         self.cam_mode = Camera.EDITOR
         self.init_attrs()
         self.init_editor_frame()
+        self.init_selection()
         self.reinit()
         self.create_text()
 
     def init_attrs(self):
-        """Initialize attributes so we know they exist"""
+        """Initialize attributes of the editor"""
         self.camx = 0
         self.camy = 0
         self.padx = EDIT_PADDING
         self.pady = EDIT_PADDING
         self.edit_layer = None
         self.create_args = None
+        self.visible = {layer: None for layer in Layer}
 
-    def reinit(self):
-        """Initialization which occurs whenever a map is loaded"""
+    def init_selection(self):
         self.select_mode.set(SelectMode.NONE)
         self.selected = []
         self.cur_object = None
@@ -60,8 +62,10 @@ class GSSokobanEditor(GSSokoban):
         self.structure_select = self.structures
         # This is the currently selected structure
         self.cur_structure = None
+
+    def reinit(self):
+        """Initialization which occurs whenever a map is loaded"""
         self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
-        self.reset_selection()
         # Make sure part of the room is in view
         self.move_camera((0,0))
 
@@ -76,7 +80,7 @@ class GSSokobanEditor(GSSokoban):
         save_b = tk.Button(main_menu, text="Save", command=self.save)
         clear_b = tk.Button(main_menu, text="Clear", command=self.clear)
         play_b = tk.Button(main_menu, text="Play", command=self.play)
-        quit_b = tk.Button(main_menu, text="Quit", command=self.previous_state)
+        quit_b = tk.Button(main_menu, text="Quit", command=self.ask_previous_state)
         load_b.grid()
         save_b.grid(row=0, column=1)
         clear_b.grid(row=0, column=2)
@@ -149,15 +153,24 @@ class GSSokobanEditor(GSSokoban):
         object_type_menu_frame.pack()
         self.create_mode_var = tk.StringVar(object_select)
         self.create_mode_var.trace("w", object_type_callback)
-        layer_button_dict = {}
         self.object_type_menu_dict = {}
 
+        tk.Label(layer_select, text="Layer").grid(row=0, column=0)
+        tk.Label(layer_select, text="Edit").grid(row=0, column=1)
+        tk.Label(layer_select, text="Visible").grid(row=0, column=2)
+
+
+        row = 0
         for layer in Layer:
-            current = tk.Radiobutton(layer_select, text=layer.name, variable=self.edit_layer_var, value=int(layer))
-            layer_button_dict[layer] = current
+            row += 1
+            tk.Label(layer_select, text=layer.name).grid(row=row, column=0)
+            tk.Radiobutton(layer_select, variable=self.edit_layer_var, value=int(layer)).grid(row=row, column=1)
+            var = BoolVar()
+            var.set(True)
+            tk.Checkbutton(layer_select, variable=var.var).grid(row=row, column=2)
+            self.visible[layer] = var
             self.object_type_menu_dict[layer] = tk.OptionMenu(object_type_menu_frame, self.create_mode_var,
                                                               *(x for x in OBJ_BY_LAYER[layer]))
-            current.pack()
 
         object_settings = tk.Frame(object_select, padx=PADX, pady=PADY)
         object_settings.pack(side=tk.TOP, fill=tk.X)
@@ -167,7 +180,7 @@ class GSSokobanEditor(GSSokoban):
                 current = tk.Frame(object_settings)
                 self.object_settings_dict[obj_name] = (current, [])
                 for name, type in OBJ_TYPE[obj_name]["args"]:
-                    var, widget = self.make_variable_widget(current, name, type)
+                    var, widget = self.make_variable_widget(current, name, type, obj_name)
                     var.trace("w", self.set_sample)
                     self.object_settings_dict[obj_name][1].append(var)
                     widget.pack(side=tk.TOP)
@@ -228,8 +241,6 @@ class GSSokobanEditor(GSSokoban):
         link_switch_b = tk.Button(create_structure, text="Link Switch", command=self.link_switch)
         link_switch_b.pack()
 
-        self.link_switch_all, link_switch_all_box = self.make_variable_widget(create_structure, "All", "bool")
-        link_switch_all_box.pack()
         self.link_switch_persistent, link_switch_persistent_box = self.make_variable_widget(create_structure, "Persistent", "bool")
         link_switch_persistent_box.pack()
 
@@ -265,16 +276,17 @@ class GSSokobanEditor(GSSokoban):
             self.cur_structure = None
             self.reset_selection()
 
-    def make_variable_widget(self, frame, name, type):
+    def make_variable_widget(self, frame, name, type, obj_name=None):
         var = None
         widget = None
         if type == "bool":
             var = BoolVar()
-            var.set(0)
+            var.set(False)
             widget = tk.Checkbutton(frame, text=name, variable=var.var)
         elif type == "color":
             var = ColorVar()
-            color_list = list(OBJ_COLORS.keys())
+            color_list = OBJ_TYPE[obj_name]["color"] if obj_name in OBJ_TYPE and "color" in OBJ_TYPE[obj_name] else None
+            if not color_list: color_list = [color.name for color in ColorEnum]
             var.set(color_list[0])
             widget = tk.OptionMenu(frame, var.var, *color_list)
         return var, widget
@@ -304,6 +316,13 @@ class GSSokobanEditor(GSSokoban):
                     pygame.draw.rect(self.surf, color, Rect(x+MESH//6, y+MESH//6, 2*MESH//3 + 1, 2*MESH//3 + 1), SELECT_THICKNESS)
                 elif obj.layer == Layer.PLAYER:
                     pygame.draw.circle(self.surf, color, (x+MESH//2, y+MESH//2), MESH//3, SELECT_THICKNESS)
+
+    def draw_room(self):
+        pygame.draw.rect(self.surf, WHITE, Rect(self.padx, self.pady, MESH * DISPLAY_WIDTH, MESH * DISPLAY_HEIGHT))
+        for layer in Layer:
+            if self.visible[layer].get():
+                self.draw_layer(layer)
+        self.draw_out_of_bounds()
 
     def move_camera(self, dir, distance=1):
         dx, dy = dir[0] * distance, dir[1] * distance
@@ -399,10 +418,16 @@ class GSSokobanEditor(GSSokoban):
     def load_reinit(self):
         """Load a map and reinitialize the editor"""
         if self.load(editing=True):
+            self.init_selection()
             self.reinit()
 
     def clear(self):
-        self.load(filename=DEFAULT_MAP_FILE, editing=True)
+        if messagebox.askokcancel("Clear", "Clear the current map?"):
+            self.load(filename=DEFAULT_MAP_FILE, editing=True)
+
+    def ask_previous_state(self):
+        if messagebox.askokcancel("Quit", "Quit the Editor?"):
+            self.previous_state()
 
     def create(self, pos):
         if self.objmap[pos][self.edit_layer] is None:
@@ -440,10 +465,7 @@ class GSSokobanEditor(GSSokoban):
                 gates.append(obj)
             else:
                 return False
-        if len(switches) == 0 or len(gates) == 0:
-            return False
-        self.structures.append(SwitchLink(None, switches, gates, self.link_switch_all.get(),
-                                          self.link_switch_persistent.get()))
+        self.structures.append(SwitchLink(None, switches, gates, self.link_switch_persistent.get()))
         self.reset_selection()
         return True
 
@@ -490,7 +512,7 @@ class ColorVar:
         self.var = tk.StringVar()
 
     def get(self):
-        return OBJ_COLORS[self.var.get()]
+        return ColorEnum[self.var.get()]
 
     def set(self, value):
         self.var.set(value)

@@ -1,4 +1,5 @@
 import sys
+from tkinter import messagebox
 
 import pygame
 
@@ -10,6 +11,7 @@ class StateManager:
         self.state = None
         self.pause_timer = 0
         self.root = root
+        self.quit = False
         # This may change eventually, but most games start on a menu
         GSStartMenu(self)
 
@@ -29,7 +31,7 @@ class StateManager:
     def check_for_quit(self):
         """Check the event queue for something trying to quit the program."""
         for event in pygame.event.get(QUIT):
-            self.terminate()
+            self.quit = True
         # Escape key just returns up one state
         for event in pygame.event.get(KEYDOWN):
             if event.key == K_ESCAPE:
@@ -37,11 +39,17 @@ class StateManager:
             # If it wasn't the escape key, put that event back in the event queue
             pygame.event.post(event)
 
+    def set_quit(self):
+        self.quit = True
+
     def terminate(self):
         """Safely quit pygame."""
         # This ensures that the quit function of every GameState
         # on the stack is called
-        self.state.top_state()
-        pygame.quit()
-        self.root.destroy()
-        sys.exit()
+        if messagebox.askokcancel("Quit", "Are you sure you want to Quit?"):
+            self.state.top_state()
+            pygame.quit()
+            self.root.destroy()
+            sys.exit()
+        else:
+            self.quit = False

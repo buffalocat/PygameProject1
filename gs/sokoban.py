@@ -114,11 +114,11 @@ class GSSokoban(GameState):
         self.update_dynamic()
 
     def undo_delta(self):
-        for str, delta in self.delta.structure:
+        for str, delta in self.delta.structure[::-1]:
             str.undo_delta(delta)
-        for obj, delta in self.delta.dynamic:
+        for obj, delta in self.delta.dynamic[::-1]:
             obj.undo_delta(delta)
-        for group_set in self.delta.group_merges:
+        for group_set in self.delta.group_merges[::-1]:
             for group in group_set:
                 for obj in group.objs:
                     obj.group = group
@@ -236,17 +236,25 @@ class GSSokoban(GameState):
         return ((x - self.padx) // MESH) + self.camx, ((y - self.pady) // MESH) + self.camy
 
     def draw_room(self):
-        # This will need to be changed significantly
-        # once we have a "camera" object
         pygame.draw.rect(self.surf, WHITE, Rect(self.padx, self.pady, MESH * DISPLAY_WIDTH, MESH * DISPLAY_HEIGHT))
+        for layer in Layer:
+            self.draw_layer(layer)
+        self.draw_out_of_bounds()
+
+    def draw_layer(self, layer):
         for i in range(DISPLAY_WIDTH):
             for j in range(DISPLAY_HEIGHT):
                 pos = (i + self.camx, j + self.camy)
                 if self.in_bounds(pos):
-                    for obj in self.objmap[pos]:
-                        if obj is not None:
-                            obj.draw(self.surf, self.real_pos(pos))
-                else:
+                    obj = self.objmap[pos][layer]
+                    if obj is not None:
+                        obj.draw(self.surf, self.real_pos(pos))
+
+    def draw_out_of_bounds(self):
+        for i in range(DISPLAY_WIDTH):
+            for j in range(DISPLAY_HEIGHT):
+                pos = (i + self.camx, j + self.camy)
+                if not self.in_bounds(pos):
                     pygame.draw.rect(self.surf, OUT_OF_BOUNDS_COLOR,
                                      Rect(self.real_pos(pos), (MESH, MESH)), 0)
 
@@ -372,7 +380,7 @@ class GSSokoban(GameState):
                     self.structures.append(load_str_from_data(self, strtype, attrs))
             if not editing:
                 for s in self.structures:
-                    s.activate()
+                    s.real_init()
             self.update_camera()
         except IOError:
             print("Failed to read file")

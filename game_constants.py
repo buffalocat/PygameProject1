@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 
 from pygame.constants import *
 import numpy as np
@@ -81,4 +82,26 @@ NEON_GREEN = (150, 255, 0)
 BRIGHT_ORANGE= (255, 150, 0)
 LAVENDER = (130, 100, 150)
 
+# Switch Colors
+SW_RED1 = (250, 180, 180)
+SW_BLUE1 = (180, 220, 250)
+SW_GREEN1 = (200, 240, 180)
+SW_PURPLE1 = (220, 180, 250)
+
 OUT_OF_BOUNDS_COLOR = LIGHT_BLUE
+
+class ColorEnum(Enum):
+    Black = BLACK
+    Red = RED
+    Blue = BLUE
+    Green = GREEN
+    Purple = PURPLE
+    Gold =  GOLD
+    Grey = GREY
+    LightGrey = LIGHT_GREY
+    NavyBlue = NAVY_BLUE
+
+    SwRed = SW_RED1
+    SwBlue = SW_BLUE1
+    SwGreen = SW_GREEN1
+    SwPurple = SW_PURPLE1

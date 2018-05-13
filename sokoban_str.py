@@ -17,7 +17,7 @@ class Structure:
         self.state = state
         self.strtype = strtype
 
-    def activate(self):
+    def real_init(self):
         """Build the structure in the map"""
         pass
 
@@ -46,17 +46,16 @@ class Structure:
 
 
 class SwitchLink(Structure):
-    def __init__(self, state, switches, gates, all, persistent):
+    def __init__(self, state, switches, gates, persistent):
         self.switches = switches
         self.gates = gates
-        self.all = all
         self.persistent = persistent
         self.active = [False for _ in switches]
         self.n = len(switches)
         self.signal = False
         super().__init__(state, StrType.SWITCH_LINK)
 
-    def activate(self):
+    def real_init(self):
         for switch in self.switches:
             switch.add_link(self)
 
@@ -66,16 +65,20 @@ class SwitchLink(Structure):
 
     def update(self):
         signal_before = self.signal
-        if self.all:
-            if all(self.active):
-                self.signal = True
-            elif not self.persistent:
-                self.signal = False
+        if all(self.active):
+            self.signal = True
+        elif not self.persistent:
+            self.signal = False
+        if self.signal:
+            if self.persistent:
+                for switch in self.switches:
+                    switch.set_persistent(True)
+        elif any(self.active):
+            for switch in self.switches:
+                switch.set_semi_signal(self, True)
         else:
-            if any(self.active):
-                self.signal = True
-            elif not self.persistent:
-                self.signal = False
+            for switch in self.switches:
+                switch.set_semi_signal(self, False)
         if self.signal != signal_before:
             self.state.delta.add_structure(self, signal_before)
             self.send_signal()
@@ -99,8 +102,6 @@ class SwitchLink(Structure):
             self.n -= 1
         elif obj in self.gates:
             self.gates.remove(obj)
-        if self.n == 0 or len(self.gates) == 0:
-            str_list.remove(self)
 
 
 # Doors are simple: one-way paths that the PLA YER can go through
@@ -119,7 +120,7 @@ class Door(Structure):
 
 STR_TYPE = {StrType.SWITCH_LINK:
                 {"type": SwitchLink,
-                 "args": [("switches", "obj[]"), ("gates", "obj[]"), ("all", "bool"), ("persistent", "bool")]}}
+                 "args": [("switches", "obj[]"), ("gates", "obj[]"), ("persistent", "bool")]}}
 
 
 def load_str_from_data(state, strtype, attrs):
