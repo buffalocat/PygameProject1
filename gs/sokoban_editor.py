@@ -1,4 +1,5 @@
 import tkinter as tk
+from functools import partial
 from tkinter import messagebox
 
 from gs.sokoban import Camera, GSSokoban
@@ -13,12 +14,12 @@ DEFAULT_LAYER = Layer.SOLID
 class SelectMode(IntEnum):
     NONE = auto()
     STANDARD = auto()
-    SINGLE = auto()
+    OBJECT = auto()
     STRUCTURE = auto()
 
 # SELECTION CONSTANTS
 SELECT_COLOR = {SelectMode.STANDARD: HOT_PINK,
-                SelectMode.SINGLE: BRIGHT_ORANGE,
+                SelectMode.OBJECT: BRIGHT_ORANGE,
                 SelectMode.STRUCTURE: NEON_GREEN}
 
 SELECT_THICKNESS = 3
@@ -53,21 +54,25 @@ class GSSokobanEditor(GSSokoban):
         self.visible = {layer: None for layer in Layer}
 
     def init_selection(self):
+        self.selectx = 0
+        self.selecty = 0
+        self.select_rect = Rect(0, 0, 0, 0)
         self.select_mode.set(SelectMode.NONE)
         self.selected = []
         self.cur_object = None
-        # Note: we have to be careful not to accidentally modify this!
-        # But it's also convenient to not do a deep copy
-        # This is the list of structures which contain all objects in selected
+        # Since it's not a deep copy, we never directly modify it - just reassign
         self.structure_select = self.structures
-        # This is the currently selected structure
         self.cur_structure = None
 
     def reinit(self):
         """Initialization which occurs whenever a map is loaded"""
         self.editor.pack(side=tk.RIGHT, anchor=tk.N, padx=20, pady=20)
-        # Make sure part of the room is in view
-        self.move_camera((0,0))
+        # Make sure part of the room is in view; center on player if possible
+        if self.player is not None:
+            px, py = self.player.pos
+            self.move_camera((px - self.camx - DISPLAY_CX, py - self.camy - DISPLAY_CY))
+        else:
+            self.move_camera((0,0))
 
 
     def init_editor_frame(self):
@@ -192,11 +197,27 @@ class GSSokobanEditor(GSSokoban):
         self.edit_layer_var.set(int(DEFAULT_LAYER))
 
         # OBJ SELECTION
+        def object_property_callback(*args, name=None, var=None):
+            setattr(self.cur_object, name, var.get())
+
+        def build_edit_object_frame():
+            self.edit_object_properties.pack_forget()
+            self.edit_object_properties = tk.Frame(self.current_edit_selection)
+            self.edit_object_properties.pack()
+            if self.cur_object is not None:
+                obj_name = self.cur_object.name()
+                for name, type in OBJ_TYPE[obj_name]["args"]:
+                    var, widget = self.make_variable_widget(self.edit_object_properties, name, type, obj_name)
+                    var.set(getattr(self.cur_object, name), raw_value=True)
+                    var.trace("w", partial(object_property_callback, name=name, var=var))
+                    widget.pack(side=tk.TOP)
+
         def on_select_object(event):
             cur = event.widget.curselection()
             if cur:
-                self.select_mode.set(SelectMode.SINGLE)
+                self.select_mode.set(SelectMode.OBJECT)
                 self.cur_object = self.selected[cur[0]]
+                build_edit_object_frame()
 
         select_frame = tk.LabelFrame(right_col, text="Selection", padx=PADX, pady=PADY)
         select_frame.pack(side=tk.TOP, fill=tk.X)
@@ -245,13 +266,12 @@ class GSSokobanEditor(GSSokoban):
         link_switch_persistent_box.pack()
 
         create_group_b = tk.Button(create_structure, text="Create Group", command=self.create_group)
-        # This doesn't exist yet
-        #create_group_b.pack()
 
         # EDIT OBJECT
-        edit_object = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
-        #delete_object_b = tk.Button(edit_object, text="Delete Object")
-        #delete_object_b.pack()
+        self.edit_object = tk.LabelFrame(edit_selection, text="Edit Object", padx=PADX, pady=PADY)
+        delete_object_b = tk.Button(self.edit_object, text="Delete Object", command=self.delete_selected_object)
+        delete_object_b.pack()
+        self.edit_object_properties = tk.Frame()
 
         # EDIT STRUCTURE
         edit_structure = tk.LabelFrame(edit_selection, text="Edit Structure", padx=PADX, pady=PADY)
@@ -261,7 +281,7 @@ class GSSokobanEditor(GSSokoban):
         # Finish putting together the EDIT SELECTION frame
         edit_selection_dict = {SelectMode.NONE: edit_selection_nothing,
                                     SelectMode.STANDARD: create_structure,
-                                    SelectMode.SINGLE: edit_object,
+                                    SelectMode.OBJECT: self.edit_object,
                                     SelectMode.STRUCTURE: edit_structure}
         self.current_edit_selection = edit_selection_nothing
         self.select_mode = SelectModeVar()
@@ -275,6 +295,9 @@ class GSSokobanEditor(GSSokoban):
             self.structures.remove(self.cur_structure)
             self.cur_structure = None
             self.reset_selection()
+
+    def delete_selected_object(self):
+        self.destroy(self.cur_object.pos, self.cur_object.layer)
 
     def make_variable_widget(self, frame, name, type, obj_name=None):
         var = None
@@ -303,7 +326,7 @@ class GSSokobanEditor(GSSokoban):
             selection = []
             if mode == SelectMode.STANDARD:
                 selection = self.selected
-            elif mode == SelectMode.SINGLE:
+            elif mode == SelectMode.OBJECT:
                 selection = [self.cur_object]
             elif mode == SelectMode.STRUCTURE:
                 selection = self.cur_structure.get_objs()
@@ -378,7 +401,7 @@ class GSSokobanEditor(GSSokoban):
                 self.remove_from_selection(obj)
         else:
             if not self.selected:
-                self.destroy(pos)
+                self.destroy(pos, self.edit_layer)
             self.reset_selection()
 
     def add_to_selection(self, obj):
@@ -415,15 +438,16 @@ class GSSokobanEditor(GSSokoban):
         self.structure_select_list.delete(0, tk.END)
         self.structure_select_list.insert(0, *[str.name() for str in self.structure_select])
 
-    def load_reinit(self):
+    def load_reinit(self, filename=None):
         """Load a map and reinitialize the editor"""
-        if self.load(editing=True):
+        if self.load(filename=filename, editing=True):
             self.init_selection()
             self.reinit()
+            self.reset_selection()
 
     def clear(self):
         if messagebox.askokcancel("Clear", "Clear the current map?"):
-            self.load(filename=DEFAULT_MAP_FILE, editing=True)
+            self.load_reinit(filename=DEFAULT_MAP_FILE)
 
     def ask_previous_state(self):
         if messagebox.askokcancel("Quit", "Quit the Editor?"):
@@ -438,15 +462,15 @@ class GSSokobanEditor(GSSokoban):
             return True
         return False
 
-    def destroy(self, pos):
-        obj = self.objmap[pos][self.edit_layer]
+    def destroy(self, pos, layer):
+        obj = self.objmap[pos][layer]
         if obj is not None:
             self.remove_from_selection(obj)
             # Remove the object from any structures it's in
             for s in self.structures:
                 if obj in s.get_objs():
                     s.remove(self.structures, obj)
-            self.objmap[pos][self.edit_layer] = None
+            self.objmap[pos][layer] = None
             if obj.is_player:
                 self.search_for_player()
             return True
@@ -511,11 +535,15 @@ class ColorVar:
     def __init__(self):
         self.var = tk.StringVar()
 
-    def get(self):
-        return ColorEnum[self.var.get()]
+    def get(self, raw_value=False):
+        return ColorEnum[self.var.get()].value
 
-    def set(self, value):
-        self.var.set(value)
+    def set(self, value, raw_value=False):
+        # If raw_value, then value is a tuple, not a color name
+        if raw_value:
+            self.var.set(ColorEnum(value).name)
+        else:
+            self.var.set(value)
 
     def trace(self, mode, callback):
         return self.var.trace(mode, callback)
@@ -525,10 +553,10 @@ class BoolVar:
     def __init__(self):
         self.var = tk.IntVar()
 
-    def get(self):
+    def get(self, raw_value=True):
         return True if self.var.get() else False
 
-    def set(self, value):
+    def set(self, value, raw_value=True):
         self.var.set(value)
 
     def trace(self, mode, callback):
@@ -539,10 +567,10 @@ class SelectModeVar:
     def __init__(self):
         self.var = tk.IntVar()
 
-    def get(self):
+    def get(self, raw_value=True):
         return SelectMode(self.var.get())
 
-    def set(self, value):
+    def set(self, value, raw_value=True):
         self.var.set(int(value))
 
     def trace(self, mode, callback):

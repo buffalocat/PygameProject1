@@ -53,7 +53,7 @@ class GameState:
             self.parent.take_control()
         # If we were already at the top of the state stack, just quit
         else:
-            self.mgr.set_quit()
+            self.mgr.ask_quit()
 
     def top_state(self):
         """Return control to the top state on the stack"""

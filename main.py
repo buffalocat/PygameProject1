@@ -21,7 +21,7 @@ def main():
     pygame.mouse.set_visible(True)
     manager = StateManager(root)
 
-    root.protocol("WM_DELETE_WINDOW", manager.set_quit)
+    root.protocol("WM_DELETE_WINDOW", manager.ask_quit)
 
     # Main game loop
     # We put root.update() in here so that pygame.display.update()
@@ -35,6 +35,8 @@ def main():
         dt = 1000*(time.clock() - t)
         REAL_FPS = round(1000.0 / dt)
         root.title(f"FPS: {min(REAL_FPS, FPS)}/{FPS}")
+        # The FPS is actually slightly more.  This shouldn't matter.
+        root.after(max(1, round(FRAME_TIME - dt)-1))
 
     manager.terminate()
 

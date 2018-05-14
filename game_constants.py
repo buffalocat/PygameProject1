@@ -11,7 +11,7 @@ from pygame.rect import Rect
 DEBUG = True
 
 # System Constants
-FPS = 60
+FPS = 30
 FRAME_TIME = 1000.0 / FPS
 
 WINDOW_WIDTH = 800

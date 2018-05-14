@@ -45,10 +45,7 @@ class GameObj:
         else:
             self.layer = Layer(layer)
 
-        try:
-            self.color = ColorEnum(color).value
-        except:
-            self.color = color
+        self.color = ColorEnum(color).value
 
         self.rideable = rideable
         self.pushable = pushable
@@ -77,7 +74,10 @@ class GameObj:
         if self.pushable and not self.sticky:
             offset = NONSTICK_OUTLINE_THICKNESS
             pygame.draw.rect(surf, LIGHT_GREY, Rect((x, y), (MESH, MESH)))
-        pygame.draw.rect(surf, self.color, Rect((x + offset, y + offset), (MESH - 2 * offset, MESH - 2 * offset)))
+        try:
+            pygame.draw.rect(surf, self.color, Rect((x + offset, y + offset), (MESH - 2 * offset, MESH - 2 * offset)))
+        except:
+            print(self.color)
         if self.rideable:
             center = (pos[0] + MESH // 2, pos[1] + MESH // 2)
             pygame.draw.circle(surf, BLACK, center,
@@ -94,7 +94,7 @@ class GameObj:
         pass
 
     def display_str(self):
-        return f"{self} {self.pos}"
+        return f"{self.name()} {self.pos}"
 
     def name(self):
         return self.__class__.__name__
@@ -227,16 +227,21 @@ class GateBase(GameObj):
 
     def draw(self, surf, pos):
         x, y = pos
+        # Simulate the existence of the GateWall
         if self.virtual and self.default:
             pygame.draw.rect(surf, self.wall_color, Rect(x, y, MESH, MESH))
         else:
             pygame.draw.rect(surf, self.color, Rect(x, y, MESH, MESH))
 
 
-# Maybe include something to ensure that GateWalls are ignored during level saving?
 class GateWall(GameObj):
     def __init__(self, state, pos, color):
         super().__init__(state, pos, color=color)
+
+
+# How much darker do switches get?
+SEMI_DIM = 100
+ACTIVE_DIM = 255
 
 
 class Switch(GameObj):
@@ -249,8 +254,8 @@ class Switch(GameObj):
 
     def init_colors(self):
         r, g, b = self.color
-        self.semi_color = (r-50, g-50, b-50)
-        self.active_color = (r-120, g-120, b-120)
+        self.semi_color = (max(0, r-SEMI_DIM), max(0, g-SEMI_DIM), max(0, b-SEMI_DIM))
+        self.active_color = (max(0, r-ACTIVE_DIM), max(0, g-ACTIVE_DIM), max(0, b-ACTIVE_DIM))
 
     def real_init(self):
         self.links = []

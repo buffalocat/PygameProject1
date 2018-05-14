@@ -28,6 +28,7 @@ class GSSokoban(GameState):
         self.delta = Delta()
         self.deltas = deque(maxlen=MAX_DELTAS)
         self.bg = WHITE
+        self.player = None
         if pick_level:
             filename = None
         else:
